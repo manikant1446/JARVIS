@@ -387,6 +387,13 @@ def resolve(name: str, kind: str):
                         continue
                 yield idx, (dev.get("name") or "").strip()
 
+        # Fast check: if the desired device isn't present in available devices at all,
+        # return None immediately instead of triggering an expensive multi-second host-API probe
+        wanted_clean = wanted.lower()
+        if not any(wanted_clean in (d.get("name") or "").lower() for d in devices if d.get(chan_key, 0) > 0):
+            print(f"[Audio] Device '{wanted}' not currently connected for {kind} — using system default")
+            return None
+
         # The API the picker settled on for this direction comes first — the
         # endpoint that was listed must be the endpoint that gets opened, or the
         # setting means something different from what it says. list_devices()

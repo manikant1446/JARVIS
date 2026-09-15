@@ -378,6 +378,11 @@ class _SysMetrics:
 _metrics = _SysMetrics()
 
 class HudCanvas(QWidget):
+    _TICK_ANGLES = [
+        (math.cos(math.radians(deg)), -math.sin(math.radians(deg)), deg % 30 == 0)
+        for deg in range(0, 360, 10)
+    ]
+
     def __init__(self, face_path: str, assistant_name: str = "J.A.R.V.I.S", parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WidgetAttribute.WA_OpaquePaintEvent)
@@ -552,15 +557,8 @@ class HudCanvas(QWidget):
         else:
             _blinked = False
 
-        # Repaint throttling — advancing the animation state above is cheap at
-        # 60 Hz, but the paint is heavy. Repaint every frame while something is
-        # actually happening (speaking, audio, thinking) or when the blink
-        # toggles; otherwise drop to ~20 Hz so an idle HUD stops pinning a CPU
-        # core. The visuals stay smooth because the state keeps stepping.
-        self._paint_tick = (self._paint_tick + 1) % 3
-        active = (self.speaking or amp > 0.02
-                  or self.state in ("THINKING", "PROCESSING"))
-        if active or _blinked or self._paint_tick == 0:
+        # Smooth 60 FPS rendering whenever the HUD is visible
+        if self.isVisible():
             self.update()
 
     def paintEvent(self, _):
@@ -629,12 +627,11 @@ class HudCanvas(QWidget):
         # tick marks
         t_out, t_in = fw * 0.497, fw * 0.474
         p.setPen(QPen(qcol(C.PRI, 140), 1))
-        for deg in range(0, 360, 10):
-            rad = math.radians(deg)
-            inn = t_in if deg % 30 == 0 else t_in + 6
+        for cos_a, sin_a, is_major in self._TICK_ANGLES:
+            inn = t_in if is_major else t_in + 6
             p.drawLine(
-                QPointF(cx + t_out * math.cos(rad), cy - t_out * math.sin(rad)),
-                QPointF(cx + inn  * math.cos(rad), cy - inn  * math.sin(rad)),
+                QPointF(cx + t_out * cos_a, cy + t_out * sin_a),
+                QPointF(cx + inn  * cos_a, cy + inn  * sin_a),
             )
 
         # crosshair
@@ -3274,6 +3271,16 @@ class MainWindow(QMainWindow):
         import stat as _stat
         script  = Path(__file__).resolve().parent / "main.py"
         python  = Path(sys.executable)
+        candidates = [
+            Path(__file__).resolve().parent / ".venv" / "bin" / "python3",
+            Path("/Users/manikantkumar/Projects/Ai Assistant/Mark LIII/.venv/bin/python3"),
+            Path("/Users/manikantkumar/Projects/Ai Assistant/Mark 53/.venv/bin/python3"),
+        ]
+        for cand in candidates:
+            if cand.exists():
+                python = cand
+                break
+
         desktop = self._get_desktop_dir()
 
         # Arc-reactor icon (.ico — also exported as .png for Linux/macOS)
@@ -3284,7 +3291,7 @@ class MainWindow(QMainWindow):
         try:
             _os = platform.system()
 
-            asst_name = (getattr(self, "_assistant_name", "") or "XYREX").strip()
+            asst_name = (getattr(self, "_assistant_name", "") or "JARVIS").strip()
 
             # ── Windows ───────────────────────────────────────────────────────
             if _os == "Windows":
@@ -3297,8 +3304,8 @@ class MainWindow(QMainWindow):
 
             # ── macOS — proper .app bundle (no Terminal window) ───────────────
             elif _os == "Darwin":
-                # Clean up any legacy J.A.R.V.I.S.app
-                for legacy in [desktop / "J.A.R.V.I.S.app", desktop / "JARVIS.app"]:
+                # Clean up any XYREX.app, lowercase xyrex.app, or old format bundles
+                for legacy in [desktop / "xyrex.app", desktop / "XYREX.app", desktop / "J.A.R.V.I.S.app"]:
                     if legacy.exists():
                         try:
                             import shutil
