@@ -37,7 +37,7 @@ def _gemini_client():
 
     class _W:
         def generate_content(self, contents):
-            return _c.models.generate_content(model="gemini-flash-latest", contents=contents)
+            return _c.models.generate_content(model="gemini-3.6-flash", contents=contents)
 
     return _W()
 
@@ -193,10 +193,28 @@ def _process_pdf(path: Path, action: str, params: dict, speak=None) -> str:
                 return ""
         return text[:max_chars]
 
-    if action in ("summarize", "extract_text", "translate_hint", "analyze", "reformat"):
+    if action in ("summarize", "extract_text", "ocr", "translate_hint", "analyze", "reformat"):
         text = _extract_pdf_text()
         if not text.strip():
-            return "Could not extract text from PDF (may be scanned/image-based)."
+            # Scanned / Image-based PDF fallback: render first page to image or upload bytes to Gemini
+            try:
+                model = _gemini_client()
+                # Try pypdfium2 or pdf2image if available
+                import pypdfium2 as pdfium
+                pdf = pdfium.PdfDocument(path)
+                page = pdf[0]
+                image = page.render(scale=2).to_pil()
+                response = model.generate_content(["Extract and analyze all content from this PDF page image:", image])
+                return response.text.strip()
+            except Exception:
+                try:
+                    from pdf2image import convert_from_path
+                    images = convert_from_path(path, first_page=1, last_page=3)
+                    model = _gemini_client()
+                    response = model.generate_content(["Extract and analyze all text/content from these PDF pages:", *images])
+                    return response.text.strip()
+                except Exception as e:
+                    return f"Could not extract text from PDF (scanned PDF without rendering library): {e}"
 
         if action == "extract_text":
             out = _output_path(path, "text", ".txt")
@@ -796,6 +814,21 @@ def file_processor(parameters: dict, player=None, speak=None) -> str:
     print(log_msg)
     if player:
         player.write_log(log_msg)
+
+    if action in ("open", "show", "launch", "display"):
+        try:
+            import subprocess
+            import platform
+            system = platform.system()
+            if system == "Darwin":
+                subprocess.Popen(["open", str(path)])
+            elif system == "Windows":
+                os.startfile(str(path))
+            else:
+                subprocess.Popen(["xdg-open", str(path)])
+            return f"Successfully opened '{path.name}' on your desktop."
+        except Exception as e:
+            return f"Failed to open file on desktop: {e}"
 
     if file_type == "unknown":
         try:

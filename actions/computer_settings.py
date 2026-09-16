@@ -5,7 +5,9 @@ import sys
 import time
 import subprocess
 import platform
+import shutil
 from pathlib import Path
+
 
 try:
     import pyautogui
@@ -124,7 +126,18 @@ def volume_get() -> int | None:
 def brightness_get() -> int | None:
     """Current brightness 0-100, or None where it cannot be read."""
     try:
-        if _OS == "Windows":
+        if _OS == "Darwin":
+            import ctypes
+            try:
+                ds = ctypes.CDLL('/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices')
+                ds.DisplayServicesGetBrightness.argtypes = [ctypes.c_uint32, ctypes.POINTER(ctypes.c_float)]
+                ds.DisplayServicesGetBrightness.restype = ctypes.c_int
+                val = ctypes.c_float()
+                if ds.DisplayServicesGetBrightness(1, ctypes.byref(val)) == 0:
+                    return max(0, min(100, round(val.value * 100)))
+            except Exception:
+                pass
+        elif _OS == "Windows":
             r = subprocess.run(
                 ["powershell", "-Command",
                  "(Get-WmiObject -Namespace root/wmi -Class WmiMonitorBrightness)"
@@ -132,7 +145,7 @@ def brightness_get() -> int | None:
                 capture_output=True, text=True, timeout=5, **_WIN_HIDE
             )
             return max(0, min(100, int(r.stdout.strip())))
-        if _OS == "Linux" and subprocess.run(
+        elif _OS == "Linux" and subprocess.run(
                 ["which", "brightnessctl"], capture_output=True).returncode == 0:
             cur = int(subprocess.run(["brightnessctl", "get"],
                                      capture_output=True, text=True, timeout=5).stdout.strip())
@@ -145,18 +158,101 @@ def brightness_get() -> int | None:
 
 
 def brightness_set(value: int) -> None:
-    """Set brightness to an absolute percentage. Only used to restore a value
-    captured before a change, so it is undo's counterpart to the up/down pair."""
-    value = max(0, min(100, int(value)))
+    """Set brightness to an absolute percentage (0-100)."""
+    raw_val = max(0, min(100, int(value)))
+    level = raw_val / 100.0
+
     if _OS == "Windows":
         subprocess.run(
             ["powershell", "-Command",
              "(Get-WmiObject -Namespace root/wmi -Class WmiMonitorBrightnessMethods)"
-             f".WmiSetBrightness(1, {value})"],
+             f".WmiSetBrightness(1, {raw_val})"],
             capture_output=True, timeout=5, **_WIN_HIDE
         )
+    elif _OS == "Darwin":
+        success = False
+
+        # Primary: Native macOS DisplayServices C Framework (Hardware screen backlight)
+        try:
+            import ctypes
+            try:
+                Quartz = ctypes.CDLL('/System/Library/Frameworks/Quartz.framework/Quartz')
+                Quartz.CGMainDisplayID.restype = ctypes.c_uint32
+                main_disp = Quartz.CGMainDisplayID()
+            except Exception:
+                main_disp = 1
+
+            ds = ctypes.CDLL('/System/Library/PrivateFrameworks/DisplayServices.framework/DisplayServices')
+            ds.DisplayServicesSetBrightness.argtypes = [ctypes.c_uint32, ctypes.c_float]
+            ds.DisplayServicesSetBrightness.restype = ctypes.c_int
+
+            for display_id in set([main_disp, 1, 0, 2]):
+                err = ds.DisplayServicesSetBrightness(display_id, float(level))
+                if err == 0:
+                    success = True
+        except Exception as e:
+            print(f"[Settings] DisplayServices brightness error: {e}")
+
+        # Secondary: CoreDisplay framework fallback
+        if not success:
+            try:
+                import ctypes
+                CoreDisplay = ctypes.CDLL('/System/Library/Frameworks/CoreDisplay.framework/CoreDisplay')
+                CoreDisplay.CoreDisplay_Display_SetUserBrightness.argtypes = [ctypes.c_uint32, ctypes.c_double]
+                CoreDisplay.CoreDisplay_Display_SetUserBrightness(1, float(level))
+                success = True
+            except Exception:
+                pass
+
+        # Tertiary fallback: brightness CLI tool
+        if not success:
+            try:
+                r = subprocess.run(["brightness", str(level)], capture_output=True, text=True)
+                out = (r.stdout + r.stderr).lower()
+                if r.returncode == 0 and "failed" not in out and "error" not in out:
+                    success = True
+            except Exception:
+                pass
+
+        # Quaternary fallback: AppleScript Keycode 144 / 145 step simulation
+        if not success:
+            steps = round(level * 16)
+            if steps == 0:
+                script = '''
+tell application "System Events"
+    repeat 16 times
+        key code 145
+        delay 0.01
+    end repeat
+end tell
+'''
+            elif steps >= 16:
+                script = '''
+tell application "System Events"
+    repeat 16 times
+        key code 144
+        delay 0.01
+    end repeat
+end tell
+'''
+            else:
+                script = f'''
+tell application "System Events"
+    repeat 16 times
+        key code 145
+        delay 0.01
+    end repeat
+    delay 0.05
+    repeat {steps} times
+        key code 144
+        delay 0.01
+    end repeat
+end tell
+'''
+            subprocess.run(["osascript", "-e", script], capture_output=True)
+
     elif _OS == "Linux":
-        subprocess.run(["brightnessctl", "set", f"{value}%"], capture_output=True)
+        subprocess.run(["brightnessctl", "set", f"{raw_val}%"], capture_output=True)
 
 
 def volume_set(value: int):
@@ -543,6 +639,155 @@ def dark_mode():
         except Exception as e:
             print(f"[Settings] dark_mode Linux failed: {e}")
 
+def _get_blueutil_path() -> str | None:
+    blueutil = shutil.which("blueutil")
+    if not blueutil:
+        for candidate in ("/opt/homebrew/bin/blueutil", "/usr/local/bin/blueutil"):
+            if Path(candidate).exists():
+                return candidate
+    return blueutil
+
+
+def _get_paired_bluetooth_devices() -> list[dict]:
+    blueutil = _get_blueutil_path()
+    if not blueutil:
+        return []
+    res = subprocess.run([blueutil, "--paired"], capture_output=True, text=True, timeout=5)
+    devices = []
+    for line in res.stdout.strip().splitlines():
+        addr_m = re.search(r"address:\s*([0-9a-fA-F-]+)", line)
+        name_m = re.search(r'name:\s*"([^"]+)"', line)
+        conn_m = " connected" in line and "not connected" not in line
+        if addr_m and name_m:
+            devices.append({
+                "address": addr_m.group(1),
+                "name": name_m.group(1),
+                "connected": conn_m,
+            })
+    return devices
+
+
+def _find_matching_bluetooth_device(query: str) -> dict | None:
+    devices = _get_paired_bluetooth_devices()
+    if not devices:
+        return None
+    if not query:
+        return devices[0]
+
+    q = query.lower().strip()
+
+    # 1. Exact or substring match
+    for d in devices:
+        d_name = d["name"].lower()
+        if q == d_name or q in d_name or d_name in q:
+            return d
+
+    # 2. Token overlap (e.g. "OnePlus Bullets Z2" matches "OnePlus Bullets Wireless Z2")
+    q_tokens = set(re.findall(r"\w+", q))
+    best_device = None
+    max_matches = 0
+    for d in devices:
+        d_tokens = set(re.findall(r"\w+", d["name"].lower()))
+        matches = len(q_tokens & d_tokens)
+        if matches > max_matches and matches >= 2:
+            max_matches = matches
+            best_device = d
+    if best_device:
+        return best_device
+
+    # 3. Fuzzy match
+    import difflib
+    names = [d["name"] for d in devices]
+    close = difflib.get_close_matches(query, names, n=1, cutoff=0.4)
+    if close:
+        for d in devices:
+            if d["name"] == close[0]:
+                return d
+
+    return None
+
+
+def connect_bluetooth(device_query: str = "") -> str:
+    if _OS != "Darwin":
+        return "Bluetooth device connect is currently supported on macOS."
+    blueutil = _get_blueutil_path()
+    if not blueutil:
+        return "Bluetooth connect requires 'blueutil'. Install with: brew install blueutil"
+
+    # Ensure Bluetooth power is ON first
+    subprocess.run([blueutil, "-p", "1"], capture_output=True, timeout=5)
+
+    target = _find_matching_bluetooth_device(device_query)
+    if not target:
+        devices = _get_paired_bluetooth_devices()
+        dev_names = ", ".join(f'"{d["name"]}"' for d in devices) if devices else "None"
+        return f"Could not find paired device matching '{device_query}'. Paired devices: {dev_names}."
+
+    addr = target["address"]
+    name = target["name"]
+    res = subprocess.run([blueutil, "--connect", addr], capture_output=True, text=True, timeout=10)
+    if res.returncode == 0:
+        return f"Connected to {name}."
+    return f"Failed to connect to {name}: {res.stderr or res.stdout or 'Device unreachable'}."
+
+
+def disconnect_bluetooth(device_query: str = "") -> str:
+    if _OS != "Darwin":
+        return "Bluetooth device disconnect is currently supported on macOS."
+    blueutil = _get_blueutil_path()
+    if not blueutil:
+        return "Bluetooth disconnect requires 'blueutil'. Install with: brew install blueutil"
+
+    target = _find_matching_bluetooth_device(device_query)
+    if not target:
+        return f"Device '{device_query}' not found."
+
+    addr = target["address"]
+    name = target["name"]
+    res = subprocess.run([blueutil, "--disconnect", addr], capture_output=True, text=True, timeout=10)
+    if res.returncode == 0:
+        return f"Disconnected from {name}."
+    return f"Failed to disconnect from {name}: {res.stderr or res.stdout or 'Error'}."
+
+
+def toggle_bluetooth(enable: bool = None) -> str:
+    if _OS == "Darwin":
+        blueutil = _get_blueutil_path()
+        if blueutil and Path(blueutil).exists():
+            try:
+                if enable is None:
+                    r = subprocess.run([blueutil, "-p"], capture_output=True, text=True, timeout=5)
+                    cur = r.stdout.strip() == "1"
+                    target = "0" if cur else "1"
+                else:
+                    target = "1" if enable else "0"
+                subprocess.run([blueutil, "-p", target], capture_output=True, timeout=5)
+                status = "on" if target == "1" else "off"
+                return f"Bluetooth turned {status}."
+            except Exception as e:
+                return f"Bluetooth toggle failed: {e}"
+        else:
+            return "Bluetooth toggle requires 'blueutil'. Install with: brew install blueutil"
+    elif _OS == "Windows":
+        try:
+            action_str = "On" if enable else "Off"
+            subprocess.run(
+                ["powershell", "-Command",
+                 f"Get-Service bthserv | Set-Service -Status {'Running' if enable else 'Stopped'}"],
+                capture_output=True, timeout=5, **_WIN_HIDE
+            )
+            return f"Bluetooth turned {action_str}."
+        except Exception as e:
+            return f"Bluetooth toggle failed: {e}"
+    else:
+        try:
+            status = "on" if enable else "off"
+            subprocess.run(["rfkill", "unblock" if enable else "block", "bluetooth"], capture_output=True)
+            return f"Bluetooth turned {status}."
+        except Exception as e:
+            return f"Bluetooth toggle failed: {e}"
+
+
 def toggle_wifi():
     if _OS == "Darwin":
         iface = _get_macos_wifi_interface()
@@ -573,6 +818,8 @@ def toggle_wifi():
             print(f"[Settings] toggle_wifi Linux failed: {e}")
 
 def restart_computer():
+
+
     if _OS == "Windows":
         subprocess.run(["shutdown", "/r", "/t", "10"], capture_output=True, **_WIN_HIDE)
     elif _OS == "Darwin":
@@ -600,6 +847,7 @@ ACTION_MAP: dict[str, callable] = {
     "toggle_mute":         volume_mute,
     "brightness_up":       brightness_up,
     "brightness_down":     brightness_down,
+    "brightness_set":      brightness_set,
     "sleep_display":       sleep_display,
     "screen_off":          sleep_display,
     "pause_video":         pause_video,
@@ -650,6 +898,9 @@ ACTION_MAP: dict[str, callable] = {
     "open_run":            open_run,
     "dark_mode":           dark_mode,
     "toggle_wifi":         toggle_wifi,
+    "toggle_bluetooth":    toggle_bluetooth,
+    "connect_bluetooth":   connect_bluetooth,
+    "disconnect_bluetooth":disconnect_bluetooth,
     "restart":             restart_computer,
     "shutdown":            shutdown_computer,
 }
@@ -712,6 +963,9 @@ _ALIASES = {
     "sleep_display":   ("screen off", "turn off the screen", "display off"),
     "dark_mode":       ("night mode", "light mode", "toggle theme"),
     "toggle_wifi":     ("wifi", "wi-fi", "internet off", "internet on"),
+    "toggle_bluetooth":("bluetooth", "blue-tooth", "bt off", "bt on", "toggle bluetooth", "bluetooth on", "bluetooth off", "ब्लूटूथ"),
+    "connect_bluetooth":("connect bluetooth", "connect headphones", "connect earbuds", "connect airpods", "connect bullets", "bluetooth connect"),
+    "disconnect_bluetooth":("disconnect bluetooth", "disconnect headphones", "disconnect earbuds", "bluetooth disconnect"),
     "task_manager":    ("processes", "task list"),
     "screenshot":      ("capture screen", "take a screenshot", "snip"),
     "refresh_page":    ("refresh", "reload page"),
@@ -720,8 +974,8 @@ _ALIASES = {
     "restart":         ("reboot", "restart the pc"),
 }
 
-_VALUE_ACTIONS = {"volume_set", "type_text", "press_key", "reload_n",
-                  "scroll_up", "scroll_down"}
+_VALUE_ACTIONS = {"volume_set", "brightness_set", "type_text", "press_key", "reload_n",
+                  "scroll_up", "scroll_down", "connect_bluetooth", "disconnect_bluetooth"}
 
 
 def _normalise(text: str) -> str:
@@ -751,6 +1005,9 @@ def _detect_action(description: str) -> dict:
     num = re.search(r"(\d{1,3})\s*%?", low)
     if num and any(w in low for w in ("volume", "ses", "sound", "lautstark", "громкость")):
         return {"action": "volume_set", "value": max(0, min(100, int(num.group(1))))}
+
+    if num and any(w in low for w in ("brightness", "parlaklik", "screen light", "display light")):
+        return {"action": "brightness_set", "value": max(0, min(100, int(num.group(1))))}
 
     # 3. Alias phrases.
     for action, phrases in _ALIASES.items():
@@ -840,6 +1097,18 @@ def computer_settings(
         except Exception as e:
             return f"Could not set volume: {e}"
 
+    if action == "brightness_set":
+        try:
+            target = int(value if value is not None else 50)
+            before = brightness_get()
+            brightness_set(target)
+            if before is not None:
+                push_undo(f"brightness {before}% → {target}%",
+                          lambda b=before: (brightness_set(b), f"Back to {b}%.")[1])
+            return f"Brightness set to {target}%."
+        except Exception as e:
+            return f"Could not set brightness: {e}"
+
     if action in ("type_text", "write_on_screen", "type", "write"):
         text = str(value or params.get("text", "")).strip()
         if not text:
@@ -870,6 +1139,33 @@ def computer_settings(
         scroll_down(int(value or 500))
         return "Scrolled down."
 
+    if action in ("toggle_bluetooth", "bluetooth"):
+        enable = None
+        val_str = str(value or "").lower().strip()
+        desc_str = (description or "").lower().strip()
+        combined = f"{val_str} {desc_str}"
+        if any(w in combined for w in ("on", "1", "enable", "start", "chalu", "kholo", "turn on", "switch on", "चालू", "ऑन")):
+            enable = True
+        elif any(w in combined for w in ("off", "0", "disable", "stop", "band", "turn off", "switch off", "बंद", "ऑफ")):
+            enable = False
+        return toggle_bluetooth(enable=enable)
+
+    if action in ("connect_bluetooth", "bluetooth_connect"):
+        target_dev = str(value or "").strip()
+        if not target_dev:
+            target_dev = description.strip()
+        for prefix in ("connect to ", "connect ", "pairing with ", "जोड़ो ", "जोड़ो ", "कनेक्ट "):
+            if target_dev.lower().startswith(prefix):
+                target_dev = target_dev[len(prefix):].strip()
+        return connect_bluetooth(target_dev)
+
+    if action in ("disconnect_bluetooth", "bluetooth_disconnect"):
+        target_dev = str(value or description or "").strip()
+        for prefix in ("disconnect from ", "disconnect ", "हटाओ "):
+            if target_dev.lower().startswith(prefix):
+                target_dev = target_dev[len(prefix):].strip()
+        return disconnect_bluetooth(target_dev)
+
     func = ACTION_MAP.get(action)
     if not func:
         return _suggest(raw_action or description)
@@ -886,7 +1182,9 @@ def computer_settings(
         _before = ("brightness", brightness_get())
 
     try:
-        func()
+        res = func()
+        if isinstance(res, str) and res:
+            return res
     except Exception as e:
         print(f"[Settings] Action failed ({action}): {e}")
         return f"Action failed ({action}): {e}"
@@ -911,7 +1209,7 @@ def computer_settings(
 # ── Tool declaration (auto-discovered by core/action_loader.py) ──────────────
 TOOL = {
     "name": "computer_settings",
-    "description": "Controls the computer: volume, brightness, window management, keyboard shortcuts, typing text on screen, closing apps, fullscreen, dark mode, WiFi, restart, shutdown, scrolling, tab management, zoom, screenshots, lock screen, refresh/reload page. Use for ANY single computer control command. restart, shutdown and toggle_wifi put a confirmation on the user's screen and do NOT happen until they press it — never claim they are done. Volume, brightness and dark mode can be reversed with the `undo` tool.",
+    "description": "Controls the computer: volume, brightness, window management, keyboard shortcuts, typing text on screen, closing apps, fullscreen, dark mode, WiFi, Bluetooth, restart, shutdown, scrolling, tab management, zoom, screenshots, lock screen, refresh/reload page. Use for ANY single computer control command. restart, shutdown and toggle_wifi put a confirmation on the user's screen and do NOT happen until they press it — never claim they are done. Volume, brightness and dark mode can be reversed with the `undo` tool.",
     "parameters": {
         "type": "OBJECT",
         "properties": {
@@ -930,7 +1228,7 @@ TOOL = {
                 "description": (
                     "The exact action. Prefer this over `description` — pick one of: "
                     "volume_up | volume_down | volume_set | mute | "
-                    "brightness_up | brightness_down | sleep_display | "
+                    "brightness_up | brightness_down | brightness_set | sleep_display | "
                     "pause_video | close_app | close_window | full_screen | "
                     "minimize | maximize | snap_left | snap_right | "
                     "switch_window | show_desktop | task_manager | focus_search | "
@@ -940,7 +1238,8 @@ TOOL = {
                     "scroll_bottom | page_up | page_down | copy | paste | cut | "
                     "undo | redo | select_all | save | enter | escape | press_key | "
                     "type_text | screenshot | lock_screen | open_settings | "
-                    "file_explorer | open_run | dark_mode | toggle_wifi | "
+                    "file_explorer | open_run | dark_mode | toggle_wifi | toggle_bluetooth | "
+                    "connect_bluetooth | disconnect_bluetooth | "
                     "restart | shutdown"
                 )
             },
@@ -953,7 +1252,7 @@ TOOL = {
             },
             "value": {
                 "type": "STRING",
-                "description": "Optional value: volume level 0-100, text to type, key name, etc."
+                "description": "Optional value: volume level 0-100, brightness level 0-100, Bluetooth device name (e.g. 'OnePlus Bullets Z2', 'AirPods'), text to type, key name, etc."
             }
         },
         "required": []

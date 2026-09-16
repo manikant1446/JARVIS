@@ -137,6 +137,59 @@ def save_brief_enabled(enabled: bool) -> None:
     CONFIG_FILE.write_text(json.dumps(data, indent=4), encoding="utf-8")
 
 
+# ── Morning briefing state ───────────────────────────────────────────────────
+# Lightweight date stamp so the auto-briefing fires at most once per calendar
+# day, surviving restarts without re-delivering.
+
+def get_last_briefing_date() -> str:
+    """Return 'YYYY-MM-DD' of the last auto-briefing, or '' if never sent."""
+    return (load_api_keys().get("last_briefing_date", "") or "").strip()
+
+
+def save_last_briefing_date(date_str: str) -> None:
+    _patch_config(last_briefing_date=date_str.strip())
+
+
+def briefing_already_sent_today() -> bool:
+    """True if the auto-briefing has already fired today."""
+    from datetime import date
+    return get_last_briefing_date() == date.today().isoformat()
+
+
+def get_briefing_config() -> dict:
+    """Granular ON/OFF toggles for each briefing section.
+    All default to True so first-run users get the full experience."""
+    cfg = load_api_keys()
+    bc = cfg.get("briefing_config")
+    if not isinstance(bc, dict):
+        bc = {}
+    return {
+        "weather":   bc.get("weather", True),
+        "calendar":  bc.get("calendar", True),
+        "reminders": bc.get("reminders", True),
+        "email":     bc.get("email", True),
+        "news":      bc.get("news", True),
+        "voice":     bc.get("voice", True),
+    }
+
+
+def save_briefing_config(updates: dict) -> None:
+    """Merge partial updates into the briefing_config sub-object."""
+    ensure_config_dir()
+    data: dict = {}
+    if CONFIG_FILE.exists():
+        try:
+            data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+    bc = data.get("briefing_config")
+    if not isinstance(bc, dict):
+        bc = {}
+    bc.update(updates)
+    data["briefing_config"] = bc
+    CONFIG_FILE.write_text(json.dumps(data, indent=4), encoding="utf-8")
+
+
 # ── Audio devices ────────────────────────────────────────────────────────────
 # Stored as device NAMES, not sounddevice indices. Indices shift every time a
 # USB device is plugged in or removed, so a saved index silently starts pointing

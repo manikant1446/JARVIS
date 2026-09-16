@@ -705,6 +705,20 @@ class HudCanvas(QWidget):
         elif self.state == "LISTENING":
             sym = "●" if self._blink else "○"
             txt, col = f"{sym}  LISTENING",  qcol(C.GREEN)
+        elif self.state == "STARTING":
+            sym = "◈" if self._blink else "◇"
+            txt, col = f"{sym}  STARTING",   qcol(C.ACC2)
+        elif self.state == "ONLINE":
+            txt, col = "●  ONLINE",    qcol(C.GREEN)
+        elif self.state in ("READY", "SLEEPING"):
+            sym = "●" if self._blink else "○"
+            txt, col = f"{sym}  READY",      qcol(C.PRI)
+        elif self.state == "ERROR":
+            sym = "✗" if self._blink else "!"
+            txt, col = f"{sym}  ERROR",      qcol(C.RED)
+        elif self.state == "EXECUTING":
+            sym = "▶" if self._blink else "▷"
+            txt, col = f"{sym}  EXECUTING",  qcol(C.ACC)
         else:
             sym = "●" if self._blink else "○"
             txt, col = f"{sym}  {self.state}", qcol(C.PRI)
@@ -2906,8 +2920,6 @@ class MainWindow(QMainWindow):
         # Quick-access drawer (floating overlay, built after central widget layout is done)
         self._quick_drawer = self._build_quick_drawer()
         self._update_autostart_btn(self._check_autostart())
-        from memory.config_manager import get_brief_enabled as _gbe
-        self._update_brief_btn(_gbe())
 
         self._clock_tmr = QTimer(self)
         self._clock_tmr.timeout.connect(self._tick_clock)
@@ -3747,14 +3759,6 @@ class MainWindow(QMainWindow):
         remote_btn.clicked.connect(self._open_remote)
         lay.addWidget(remote_btn)
 
-        fs_btn = QPushButton("⛶  FULLSCREEN  [F11]")
-        fs_btn.setFixedHeight(26)
-        fs_btn.setFont(QFont("Courier New", 7))
-        fs_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        fs_btn.setStyleSheet(_BTN_STYLE_DIM)
-        fs_btn.clicked.connect(self._toggle_fullscreen)
-        lay.addWidget(fs_btn)
-
         sc_btn = QPushButton("⊞  CREATE DESKTOP SHORTCUT")
         sc_btn.setFixedHeight(26)
         sc_btn.setFont(QFont("Courier New", 7))
@@ -3777,33 +3781,6 @@ class MainWindow(QMainWindow):
         cust_btn.setStyleSheet(_BTN_STYLE_DIM)
         cust_btn.clicked.connect(self._open_customize)
         lay.addWidget(cust_btn)
-
-        self._brief_btn = QPushButton()
-        self._brief_btn.setFixedHeight(26)
-        self._brief_btn.setFont(QFont("Courier New", 7))
-        self._brief_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._brief_btn.clicked.connect(self._toggle_brief)
-        lay.addWidget(self._brief_btn)
-
-        # ── Wake word ──────────────────────────────────────────────────────────
-        self._wake_btn = QPushButton()
-        self._wake_btn.setFixedHeight(26)
-        self._wake_btn.setFont(QFont("Courier New", 7))
-        self._wake_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._wake_btn.clicked.connect(self._toggle_wake_word)
-        lay.addWidget(self._wake_btn)
-
-        self._wake_sleep_btn = QPushButton()
-        self._wake_sleep_btn.setFixedHeight(26)
-        self._wake_sleep_btn.setFont(QFont("Courier New", 7))
-        self._wake_sleep_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._wake_sleep_btn.clicked.connect(self._tap_wake_manual)
-        lay.addWidget(self._wake_sleep_btn)
-        # Neutral placeholder now; the real state (which may load the model to
-        # check readiness) is resolved lazily the first time the drawer opens.
-        self._wake_btn.setText("🎙  WAKE WORD")
-        self._wake_btn.setStyleSheet(_BTN_STYLE_DIM)
-        self._wake_sleep_btn.hide()
 
         audio_btn = QPushButton("🎧  AUDIO DEVICES")
         audio_btn.setFixedHeight(26)
@@ -3886,7 +3863,29 @@ class MainWindow(QMainWindow):
         """)
         send.clicked.connect(self._send)
         row.addWidget(send)
+
+        # ── Emergency STOP button ─────────────────────────────────────────────
+        stop = QPushButton("■")
+        stop.setFixedSize(30, 30)
+        stop.setFont(QFont("Courier New", 11, QFont.Weight.Bold))
+        stop.setCursor(Qt.CursorShape.PointingHandCursor)
+        stop.setToolTip("Emergency STOP — cancel current task")
+        stop.setStyleSheet(f"""
+            QPushButton {{
+                background: {C.PANEL}; color: {C.RED};
+                border: 1px solid {C.RED}; border-radius: 3px;
+            }}
+            QPushButton:hover {{ background: rgba(255, 50, 50, 0.15); border: 1px solid {C.RED}; }}
+        """)
+        stop.clicked.connect(self._emergency_stop)
+        row.addWidget(stop)
         return row
+
+    def _emergency_stop(self):
+        """Cancel all running tasks and stop speech."""
+        if self.on_interrupt:
+            self.on_interrupt()
+        self._log.append_log("SYS: Emergency STOP triggered.")
 
     def _build_content_panel(self) -> QWidget:
         """
@@ -4021,8 +4020,7 @@ class MainWindow(QMainWindow):
             msg = (
                 f"[FILE_UPLOADED] path={path} | name={p.name} | "
                 f"type={p.suffix.lstrip('.')} | size={size} | "
-                f"Briefly tell the user you can see the file '{p.name}' "
-                f"({size}) has been uploaded and ask what they'd like to do with it."
+                f"Acknowledge receiving '{p.name}'. Call tool `file_processor(file_path='{path}')` to inspect/summarize/analyze it."
             )
             threading.Thread(target=self.on_text_command, args=(msg,), daemon=True).start()
 

@@ -180,11 +180,59 @@ def _smart_type(text: str, clear_first: bool = True) -> str:
 
 def _click(x=None, y=None, button: str = "left", clicks: int = 1) -> str:
     _require_pyautogui()
+    
+    # Optional native macOS Quartz click trigger for maximum reliability on macOS UI elements
+    def _mac_quartz_click(target_x, target_y, count=1):
+        if _get_os() == "mac":
+            try:
+                import Quartz.CoreGraphics as CG
+                pos = pyautogui.position() if (target_x is None or target_y is None) else (float(target_x), float(target_y))
+                mouse_button = CG.kCGMouseButtonLeft if button == "left" else CG.kCGMouseButtonRight
+                down_event = CG.kCGEventLeftMouseDown if button == "left" else CG.kCGEventRightMouseDown
+                up_event = CG.kCGEventLeftMouseUp if button == "left" else CG.kCGEventRightMouseUp
+
+                # Move cursor first
+                move = CG.kCGEventMouseMoved
+                event_move = CG.kCGEventCreateMouseEvent(None, move, (pos[0], pos[1]), 0)
+                CG.kCGEventPost(CG.kCGHIDEventTap, event_move)
+                time.sleep(0.05)
+
+                for click_num in range(1, count + 1):
+                    event_down = CG.kCGEventCreateMouseEvent(None, down_event, (pos[0], pos[1]), mouse_button)
+                    CG.kCGEventSetIntegerValueField(event_down, CG.kCGMouseEventClickState, click_num)
+                    CG.kCGEventPost(CG.kCGHIDEventTap, event_down)
+                    time.sleep(0.04)
+
+                    event_up = CG.kCGEventCreateMouseEvent(None, up_event, (pos[0], pos[1]), mouse_button)
+                    CG.kCGEventSetIntegerValueField(event_up, CG.kCGMouseEventClickState, click_num)
+                    CG.kCGEventPost(CG.kCGHIDEventTap, event_up)
+                    if click_num < count:
+                        time.sleep(0.08)
+                return True
+            except Exception as ex:
+                print(f"[ComputerControl] Quartz click fallback due to: {ex}")
+        return False
+
     if x is not None and y is not None:
-        pyautogui.click(x, y, button=button, clicks=clicks)
+        # Move cursor to target position first and let it settle slightly for UI focus
+        pyautogui.moveTo(x, y, duration=0.1)
+        time.sleep(0.08)
+        
+        # Try Quartz native event on macOS first
+        if not _mac_quartz_click(x, y, clicks):
+            if clicks == 2:
+                pyautogui.click(x, y, button=button, clicks=2, interval=0.12)
+            else:
+                pyautogui.click(x, y, button=button, clicks=clicks)
         return f"{'Double-c' if clicks == 2 else 'C'}licked ({x}, {y}) [{button}]"
-    pyautogui.click(button=button, clicks=clicks)
-    return f"Clicked at current position [{button}]"
+    
+    current_x, current_y = pyautogui.position()
+    if not _mac_quartz_click(current_x, current_y, clicks):
+        if clicks == 2:
+            pyautogui.click(button=button, clicks=2, interval=0.12)
+        else:
+            pyautogui.click(button=button, clicks=clicks)
+    return f"Clicked at current position ({current_x}, {current_y}) [{button}]"
 
 
 def _hotkey(*keys) -> str:

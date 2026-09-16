@@ -626,10 +626,25 @@ class _BrowserSession:
 
     async def _get_page(self) -> Page:
         await self._launch()
-        # If somehow page got closed, open a fresh one
+        if self._context:
+            try:
+                pages = [p for p in self._context.pages if not p.is_closed()]
+                if pages:
+                    self._page = pages[-1]
+                    return self._page
+            except Exception:
+                self._context = None
+                await self._launch()
+
         if self._page is None or self._page.is_closed():
-            self._page = await self._context.new_page()
-            await asyncio.sleep(0.2)
+            try:
+                self._page = await self._context.new_page()
+                await asyncio.sleep(0.2)
+            except Exception:
+                self._context = None
+                await self._launch()
+                pages = [p for p in self._context.pages if not p.is_closed()]
+                self._page = pages[-1] if pages else await self._context.new_page()
         return self._page
 
     async def go_to(self, url: str) -> str:
@@ -793,12 +808,18 @@ class _BrowserSession:
         return "New tab opened."
 
     async def close_tab(self) -> str:
-        page = self._page
-        if page and not page.is_closed():
-            ctx   = page.context
-            await page.close()
-            pages = ctx.pages
-            self._page = pages[-1] if pages else None
+        try:
+            if self._context:
+                pages = [p for p in self._context.pages if not p.is_closed()]
+                if pages:
+                    target = pages[-1]
+                    await target.close()
+                    remaining = [p for p in self._context.pages if not p.is_closed()]
+                    self._page = remaining[-1] if remaining else None
+                    return "Tab closed."
+        except Exception as e:
+            print(f"[Browser] Error closing tab: {e}")
+            self._page = None
             return "Tab closed."
         return "No active tab to close."
 

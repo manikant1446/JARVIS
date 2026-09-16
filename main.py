@@ -69,20 +69,19 @@ from actions.background_monitor import (
 )
 from actions.web_search        import _news as _fetch_news_sync
 from memory.config_manager     import (
-    get_brief_enabled, get_voice, get_wake_word_enabled, save_wake_word_enabled,    get_input_device, get_output_device,
+    get_brief_enabled, get_voice, get_wake_word_enabled, save_wake_word_enabled,
+    get_input_device, get_output_device,
+    briefing_already_sent_today, save_last_briefing_date, get_briefing_config,
 )
 from core.plugin_loader        import discover_plugins
 from core                      import undo as undo_stack
 from core                      import confirm as confirm_gate
 from core                      import audio_devices
 from core.action_loader        import discover_actions
+from core.feature_registry     import get_status_report as _feature_status_report
 from core.wake_word            import (
     WakeWordDetector, is_ready as wake_is_ready, install_and_download as wake_install,
 )
-
-# How long the assistant stays awake with no user speech before it auto-sleeps
-# again (wake-word mode only).
-WAKE_SLEEP_TIMEOUT = 120.0   # seconds (2 minutes)
 
 def get_base_dir():
     if getattr(sys, "frozen", False):
@@ -424,11 +423,10 @@ class JarvisLive:
 
         # ── Wake word ────────────────────────────────────────────────────────
         # _awake gates the mic (see _listen_audio) and the background speakers.
-        # It is True whenever wake word is OFF, so default behaviour is unchanged.
+        # MARK always starts awake (ONLINE). Wake word is opt-in only.
         self._wake_enabled     = get_wake_word_enabled()
-        self._awake            = not self._wake_enabled
+        self._awake            = True                     # always start awake
         self._wake_detector: WakeWordDetector | None = None
-        self._wake_sleep_timeout = WAKE_SLEEP_TIMEOUT
         # UI control surface for the Wake Word settings section.
         self.ui.wake_is_ready    = wake_is_ready          # () -> bool
         self.ui.wake_get_state   = self._wake_state       # () -> dict
@@ -469,25 +467,14 @@ class JarvisLive:
         self.ui.write_log(f"SYS: Awake — {reason}.")
 
     def sleep(self, reason: str = "timeout") -> None:
+        """Enter wake-word standby. Only meaningful when wake word is enabled —
+        the mic is gated but MARK stays ONLINE (no SLEEPING UI state)."""
         if not self._awake:
             return
         self._awake = False
         self.set_speaking(False)
-        self.ui.set_state("SLEEPING")
-        self.ui.write_log(f"SYS: Sleeping — {reason}. Say 'Hey Jarvis' to wake me.")
-
-    async def _run_sleep_watch(self) -> None:
-        """Auto-sleep after the configured silence window (wake-word mode only)."""
-        while True:
-            await asyncio.sleep(5)
-            if not self._wake_enabled or not self._awake:
-                continue
-            with self._speaking_lock:
-                speaking = self._is_speaking
-            if speaking:
-                continue
-            if (time.monotonic() - self._last_user_speech) > self._wake_sleep_timeout:
-                self.sleep(reason="no speech for 2 minutes")
+        self.ui.set_state("READY")
+        self.ui.write_log(f"SYS: Standby — {reason}. Say 'Hey Jarvis' to resume.")
 
     # ── Wake word: UI callbacks (called from the Qt thread) ──────────────────
 
@@ -1231,6 +1218,9 @@ class JarvisLive:
         if not self.session:
             return
 
+        # Mark today's briefing as sent — survives restarts.
+        save_last_briefing_date(datetime.now().strftime("%Y-%m-%d"))
+
         # ── Phase 1: instant greeting ─────────────────────────────────────────
         # The briefing fires before the user has said anything, so the
         # remembered language is the only signal there is. It is a starting
@@ -1354,7 +1344,7 @@ class JarvisLive:
             client = _genai.Client(api_key=_get_api_key())
             resp   = await asyncio.to_thread(
                 client.models.generate_content,
-                model="gemini-flash-latest",
+                model="gemini-3.6-flash",
                 contents=prompt,
             )
             summary = (resp.text or "").strip()
@@ -1594,17 +1584,22 @@ class JarvisLive:
                         # is the whole point, and it is invisible otherwise.
                         self.ui.write_log("SYS: Reconnected — conversation restored.")
 
-                    # Wake word: if enabled, come up ASLEEP (mic gated, silent)
-                    # until the user says "Hey Jarvis" or taps wake in the UI.
+                    # ── STARTUP: always come up ONLINE ──────────────────────
+                    self._awake = True
+                    self.ui.set_state("LISTENING")
+
+                    # Log feature status on first connect of this process run
+                    if not self._briefing_sent:
+                        _feat_report = _feature_status_report()
+                        print(f"[MARK LIII] Built-in features:\n{_feat_report}")
+                        self.ui.write_log("SYS: MARK LIII online. All systems ready.")
+                    else:
+                        self.ui.write_log("SYS: MARK LIII online.")
+
+                    # Wake word: if enabled, start the detector but stay awake
+                    # (mic gating activates only after user-initiated sleep).
                     if self._wake_enabled:
                         self._ensure_wake_detector()
-                        self._awake = False
-                        self.ui.set_state("SLEEPING")
-                        self.ui.write_log("SYS: JARVIS online — sleeping. Say 'Hey Jarvis' to wake me.")
-                    else:
-                        self._awake = True
-                        self.ui.set_state("LISTENING")
-                        self.ui.write_log("SYS: JARVIS online.")
 
                     if self._dashboard:
                         await self._dashboard.broadcast({"type": "status", "state": "active"})
@@ -1618,14 +1613,13 @@ class JarvisLive:
                     tg.create_task(self._run_system_monitor())
                     tg.create_task(self._run_background_monitor())
                     tg.create_task(self._run_proactive_mode())
-                    tg.create_task(self._run_sleep_watch())
                     if self._dashboard:
                         tg.create_task(self._relay_phone_audio())
 
-                    # Morning briefing — fires once per process launch (if enabled).
-                    # Skipped in wake-word mode: it comes up asleep, and a briefing
-                    # would mean talking while "asleep".
-                    if not self._briefing_sent and get_brief_enabled() and self._awake:
+                    # Morning briefing — fires once per day (duplicate prevention).
+                    if (not self._briefing_sent
+                            and get_brief_enabled()
+                            and not briefing_already_sent_today()):
                         self._briefing_sent = True
                         tg.create_task(self._send_startup_briefing())
 
@@ -1689,7 +1683,7 @@ class JarvisLive:
                 # Invalid API key — stop hammering the API, prompt re-configuration
                 if "API key not valid" in err_str or "1007" in err_str:
                     self.ui.write_log("ERR: API key invalid — please re-enter your key.")
-                    self.ui.set_state("SLEEPING")
+                    self.ui.set_state("ERROR")
                     self.ui.prompt_reconfig()
                     while not self.ui._win._ready:
                         await asyncio.sleep(1)
@@ -1718,7 +1712,7 @@ class JarvisLive:
                     asyncio.create_task(self._save_session_summary())
 
             self.set_speaking(False)
-            self.ui.set_state("SLEEPING")
+            self.ui.set_state("THINKING")
 
             if self._dashboard:
                 await self._dashboard.broadcast({"type": "status", "state": "sleeping"})
