@@ -1,5 +1,5 @@
 # ⚡ JARVIS — Just A Rather Very Intelligent System
-#            An Autonomous Desktop Intelligence
+##            An Autonomous Desktop Intelligence
 <div align="center">
 
 <img src="assets/jarvis_mark_liii_dynamic.svg" alt="JARVIS MARK LIII 3D Dynamic Architecture & Telemetry Banner" width="100%" style="border-radius: 12px; box-shadow: 0 20px 60px rgba(0, 242, 254, 0.35); border: 1px solid rgba(0, 242, 254, 0.5);" />
