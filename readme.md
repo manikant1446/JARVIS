@@ -8,6 +8,18 @@
 # ⚡ JARVIS MARK LIII — Autonomous Desktop Intelligence
 ### Next-Generation Multimodal AI Operating System Powered by Google Gemini Live 2.0
 
+<div align="center">
+
+[![Status](https://img.shields.io/badge/SYSTEM_STATUS-NOMINAL_100%25-00F2FE?style=for-the-badge&logo=opsgenie&logoColor=black)](#-system-telemetry--live-status-matrix)
+[![Security](https://img.shields.io/badge/SECURITY_CORE-4--TIER_GATE-FF0055?style=for-the-badge&logo=target&logoColor=white)](#-security--permission-architecture)
+[![Router](https://img.shields.io/badge/FAST_ROUTER-%3C1.8MS_LOCAL-FFE600?style=for-the-badge&logo=lightning&logoColor=black)](#-central-deterministic-command-router)
+[![AI Core](https://img.shields.io/badge/AI_CORE-GEMINI_LIVE_2.0-7928CA?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
+[![Platform](https://img.shields.io/badge/PLATFORM-macOS_SILICON_%26_INTEL-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apple.com)
+[![Tools](https://img.shields.io/badge/NATIVE_TOOLS-97_DISCOVERED-34D399?style=for-the-badge&logo=target&logoColor=black)](#-master-97-tool-inventory)
+[![License](https://img.shields.io/badge/LICENSE-MIT-38BDF8?style=for-the-badge)](#-license)
+
+<br/>
+
 <img src="assets/jarvis_3d_reactor.svg" width="100%" alt="JARVIS MARK LIII 3D Holographic Arc Reactor Core with rotating magnetic flux coils, pulse plasma core, and telemetry readouts." style="border-radius: 12px; box-shadow: 0 15px 45px rgba(0, 242, 254, 0.2); border: 1px solid rgba(0, 242, 254, 0.3);" />
 
 </div>
@@ -19,18 +31,6 @@
 </div>
 
 > **Desktop AI assistants are broken** — they are slow (2–5 second cloud roundtrips for simple queries), completely blind to real OS state, leak private data, and hallucinate "Done" when an action failed. **MARK LIII changes everything**: an enterprise-grade, Iron Man-inspired autonomous desktop AI pairing bidirectional **Google Gemini Live 2.0 streaming audio/vision** with **19 native operating engines**, a zero-latency (`<1.8ms`) deterministic command router, and a 4-tier security confirmation gate with zero-trust post-action state verification.
-
-<br/>
-
-<div align="center">
-
-[![Status](https://img.shields.io/badge/SYSTEM_STATUS-NOMINAL_100%25-00F2FE?style=for-the-badge&logo=opsgenie&logoColor=black)](#-system-telemetry--live-status-matrix)
-[![Security](https://img.shields.io/badge/SECURITY_CORE-4--TIER_GATE-FF0055?style=for-the-badge&logo=target&logoColor=white)](#-security--permission-architecture)
-[![Router](https://img.shields.io/badge/FAST_ROUTER-%3C1.8MS_LOCAL-FFE600?style=for-the-badge&logo=lightning&logoColor=black)](#-central-deterministic-command-router)
-[![AI Core](https://img.shields.io/badge/AI_CORE-GEMINI_LIVE_2.0-7928CA?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
-[![Platform](https://img.shields.io/badge/PLATFORM-macOS_SILICON_%26_INTEL-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apple.com)
-[![Tools](https://img.shields.io/badge/NATIVE_TOOLS-97_DISCOVERED-34D399?style=for-the-badge&logo=target&logoColor=black)](#-master-97-tool-inventory)
-[![License](https://img.shields.io/badge/LICENSE-MIT-38BDF8?style=for-the-badge)](#-license)
 
 <br/>
 
