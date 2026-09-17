@@ -12,7 +12,7 @@
 
 [![Status](https://img.shields.io/badge/SYSTEM_STATUS-NOMINAL_100%25-00F2FE?style=for-the-badge&logo=opsgenie&logoColor=black)](#-system-telemetry--live-status-matrix)
 [![Security](https://img.shields.io/badge/SECURITY_CORE-4--TIER_GATE-FF0055?style=for-the-badge&logo=target&logoColor=white)](#-security--permission-architecture)
-[![Router](https://img.shields.io/badge/FAST_ROUTER-%3C1.8MS_LOCAL-FFE600?style=for-the-badge&logo=lightning&logoColor=black)](#-central-deterministic-command-router)
+[![Router](https://img.shields.io/badge/FAST_ROUTER-%3C1.8MS_LOCAL-FFE600?style=for-the-badge&logo=lightning&logoColor=purple)](#-central-deterministic-command-router)
 [![AI Core](https://img.shields.io/badge/AI_CORE-GEMINI_LIVE_2.0-7928CA?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Platform](https://img.shields.io/badge/PLATFORM-macOS_SILICON_%26_INTEL-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apple.com)
 [![Tools](https://img.shields.io/badge/NATIVE_TOOLS-97_DISCOVERED-34D399?style=for-the-badge&logo=target&logoColor=black)](#-master-97-tool-inventory)
