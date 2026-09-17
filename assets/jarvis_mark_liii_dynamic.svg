@@ -1,0 +1,350 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 420" width="100%" height="100%">
+  <defs>
+    <!-- Glow Filters -->
+    <filter id="glow-cyan" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <filter id="glow-core" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="12" result="blur1" />
+      <feGaussianBlur stdDeviation="24" result="blur2" />
+      <feMerge>
+        <feMergeNode in="blur2" />
+        <feMergeNode in="blur1" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <filter id="glow-gold" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="4" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Gradients -->
+    <linearGradient id="card-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#020617" />
+      <stop offset="40%" stop-color="#070f26" />
+      <stop offset="80%" stop-color="#0b1739" />
+      <stop offset="100%" stop-color="#030712" />
+    </linearGradient>
+
+    <linearGradient id="title-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#ffffff" />
+      <stop offset="30%" stop-color="#e0f2fe" />
+      <stop offset="70%" stop-color="#38bdf8" />
+      <stop offset="100%" stop-color="#00f2fe" />
+    </linearGradient>
+
+    <linearGradient id="hud-pill" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0284c7" stop-opacity="0.3" />
+      <stop offset="100%" stop-color="#00f2fe" stop-opacity="0.1" />
+    </linearGradient>
+
+    <linearGradient id="metric-card-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b132b" stop-opacity="0.9" />
+      <stop offset="100%" stop-color="#1c2541" stop-opacity="0.7" />
+    </linearGradient>
+
+    <radialGradient id="reactor-glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="1" />
+      <stop offset="25%" stop-color="#7dd3fc" stop-opacity="0.9" />
+      <stop offset="55%" stop-color="#0284c7" stop-opacity="0.6" />
+      <stop offset="85%" stop-color="#0369a1" stop-opacity="0.2" />
+      <stop offset="100%" stop-color="#020617" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+
+  <style>
+    .font-hud {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "SF Pro Display", monospace;
+      letter-spacing: 1.5px;
+    }
+    .font-title {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "SF Pro Display", sans-serif;
+      font-weight: 900;
+      letter-spacing: 3px;
+    }
+    .font-mono {
+      font-family: "SF Mono", Monaco, Menlo, Consolas, monospace;
+    }
+
+    /* Keyframe Animations */
+    .spin-cw {
+      transform-origin: 140px 200px;
+      animation: spinCw 30s linear infinite;
+    }
+    .spin-ccw {
+      transform-origin: 140px 200px;
+      animation: spinCcw 20s linear infinite;
+    }
+    .core-pulse {
+      animation: pulseCore 3s ease-in-out infinite alternate;
+      transform-origin: 140px 200px;
+    }
+    .wave-bar {
+      animation: waveMove 1.4s ease-in-out infinite alternate;
+      transform-origin: bottom;
+    }
+    .laser-bus {
+      stroke-dasharray: 8 24;
+      animation: laserFlow 8s linear infinite;
+    }
+    .status-blink {
+      animation: blink 2s infinite;
+    }
+
+    @keyframes spinCw {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    @keyframes spinCcw {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(-360deg); }
+    }
+    @keyframes pulseCore {
+      0% { transform: scale(0.94); opacity: 0.85; }
+      100% { transform: scale(1.06); opacity: 1; }
+    }
+    @keyframes laserFlow {
+      from { stroke-dashoffset: 0; }
+      to { stroke-dashoffset: -200; }
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+    @keyframes waveMove {
+      0% { height: 6px; y: 344px; }
+      100% { height: 26px; y: 324px; }
+    }
+  </style>
+
+  <!-- Base Canvas -->
+  <rect width="960" height="420" rx="16" fill="url(#card-bg)" stroke="#1e293b" stroke-width="1.5" />
+
+  <!-- Cybernetic Grid Overlay -->
+  <g opacity="0.08" stroke="#38bdf8" stroke-width="0.8">
+    <line x1="0" y1="60" x2="960" y2="60" />
+    <line x1="0" y1="120" x2="960" y2="120" />
+    <line x1="0" y1="180" x2="960" y2="180" />
+    <line x1="0" y1="240" x2="960" y2="240" />
+    <line x1="0" y1="300" x2="960" y2="300" />
+    <line x1="0" y1="360" x2="960" y2="360" />
+    <line x1="120" y1="0" x2="120" y2="420" />
+    <line x1="240" y1="0" x2="240" y2="420" />
+    <line x1="360" y1="0" x2="360" y2="420" />
+    <line x1="480" y1="0" x2="480" y2="420" />
+    <line x1="600" y1="0" x2="600" y2="420" />
+    <line x1="720" y1="0" x2="720" y2="420" />
+    <line x1="840" y1="0" x2="840" y2="420" />
+  </g>
+
+  <!-- Technical Corner Brackets -->
+  <g stroke="#00f2fe" stroke-width="2" fill="none" opacity="0.85">
+    <path d="M 20 40 L 20 20 L 40 20" />
+    <path d="M 940 40 L 940 20 L 920 20" />
+    <path d="M 20 380 L 20 400 L 40 400" />
+    <path d="M 940 380 L 940 400 L 920 400" />
+  </g>
+
+  <!-- Top Status Pill -->
+  <g transform="translate(40, 24)">
+    <rect x="0" y="0" width="220" height="22" rx="11" fill="url(#hud-pill)" stroke="#00f2fe" stroke-width="1" />
+    <circle cx="12" cy="11" r="4" fill="#34d399" class="status-blink" />
+    <text x="24" y="15" fill="#38bdf8" font-size="9" class="font-hud" font-weight="700">
+      CORE 8.4 // ONLINE (<tspan fill="#34d399">100% NOMINAL</tspan>)
+    </text>
+  </g>
+
+  <g transform="translate(680, 24)">
+    <rect x="0" y="0" width="240" height="22" rx="11" fill="url(#hud-pill)" stroke="#00f2fe" stroke-width="1" opacity="0.8" />
+    <text x="120" y="15" fill="#94a3b8" font-size="9" class="font-hud" text-anchor="middle">
+      DARWIN KERNEL 24.1.0 • macOS
+    </text>
+  </g>
+
+  <!-- ============================================== -->
+  <!-- LEFT: 3D HOLOGRAPHIC ARC REACTOR (cx=140, cy=200) -->
+  <!-- ============================================== -->
+  <g id="mini-arc-reactor">
+    <!-- Ambient Halo -->
+    <circle cx="140" cy="200" r="105" fill="url(#reactor-glow)" />
+
+    <!-- Static Outer Calibration Ring -->
+    <circle cx="140" cy="200" r="95" fill="none" stroke="#0e3054" stroke-width="2" />
+    <circle cx="140" cy="200" r="95" fill="none" stroke="#00f2fe" stroke-width="1" stroke-dasharray="6 18" opacity="0.6" />
+
+    <!-- Outer Rotating Cog Ring (CW) -->
+    <g class="spin-cw">
+      <circle cx="140" cy="200" r="82" fill="none" stroke="#0284c7" stroke-width="1.5" />
+      <circle cx="140" cy="200" r="82" fill="none" stroke="#00f2fe" stroke-width="3" stroke-dasharray="2 16" filter="url(#glow-cyan)" />
+      <!-- Radial Node Markers -->
+      <circle cx="222" cy="200" r="3" fill="#00f2fe" />
+      <circle cx="58" cy="200" r="3" fill="#00f2fe" />
+      <circle cx="140" cy="118" r="3" fill="#00f2fe" />
+      <circle cx="140" cy="282" r="3" fill="#00f2fe" />
+    </g>
+
+    <!-- Inner Counter-Rotating Ring (CCW) -->
+    <g class="spin-ccw">
+      <circle cx="140" cy="200" r="66" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-dasharray="24 16" filter="url(#glow-cyan)" />
+      <circle cx="140" cy="200" r="56" fill="none" stroke="#00f2fe" stroke-width="1" stroke-dasharray="4 6" opacity="0.8" />
+    </g>
+
+    <!-- 8 Magnetic Flux Vanes -->
+    <g transform="translate(140, 200)" opacity="0.9">
+      <rect x="42" y="-6" width="16" height="12" rx="2" fill="#07203d" stroke="#38bdf8" stroke-width="1.2" />
+      <rect x="-58" y="-6" width="16" height="12" rx="2" fill="#07203d" stroke="#38bdf8" stroke-width="1.2" />
+      <rect x="-6" y="42" width="12" height="16" rx="2" fill="#07203d" stroke="#38bdf8" stroke-width="1.2" />
+      <rect x="-6" y="-58" width="12" height="16" rx="2" fill="#07203d" stroke="#38bdf8" stroke-width="1.2" />
+      <g transform="rotate(45)">
+        <rect x="42" y="-6" width="16" height="12" rx="2" fill="#07203d" stroke="#38bdf8" stroke-width="1.2" />
+        <rect x="-58" y="-6" width="16" height="12" rx="2" fill="#07203d" stroke="#38bdf8" stroke-width="1.2" />
+        <rect x="-6" y="42" width="12" height="16" rx="2" fill="#07203d" stroke="#38bdf8" stroke-width="1.2" />
+        <rect x="-6" y="-58" width="12" height="16" rx="2" fill="#07203d" stroke="#38bdf8" stroke-width="1.2" />
+      </g>
+    </g>
+
+    <!-- 3D Gyro Ellipse Ring -->
+    <g transform="translate(140, 200) rotate(-30)">
+      <ellipse cx="0" cy="0" rx="46" ry="18" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="6 4" opacity="0.8" />
+    </g>
+
+    <!-- Glowing Core Center -->
+    <g class="core-pulse">
+      <circle cx="140" cy="200" r="28" fill="#0369a1" stroke="#38bdf8" stroke-width="2" />
+      <circle cx="140" cy="200" r="18" fill="#ffffff" filter="url(#glow-core)" />
+      <circle cx="140" cy="200" r="8" fill="#ffffff" />
+    </g>
+  </g>
+
+  <!-- Audio Waveform Visualizer (24kHz Full-Duplex PCM Stream) -->
+  <g transform="translate(68, 310)">
+    <text x="72" y="10" fill="#64748b" font-size="8" class="font-hud" text-anchor="middle">
+      24kHz PCM AUDIO STREAM
+    </text>
+    <!-- Wave Bars -->
+    <rect x="18" y="324" width="4" height="18" rx="2" fill="#00f2fe" class="wave-bar" style="animation-delay: 0.1s" />
+    <rect x="26" y="330" width="4" height="12" rx="2" fill="#38bdf8" class="wave-bar" style="animation-delay: 0.4s" />
+    <rect x="34" y="318" width="4" height="24" rx="2" fill="#00f2fe" class="wave-bar" style="animation-delay: 0.2s" />
+    <rect x="42" y="326" width="4" height="16" rx="2" fill="#38bdf8" class="wave-bar" style="animation-delay: 0.6s" />
+    <rect x="50" y="314" width="4" height="28" rx="2" fill="#00f2fe" class="wave-bar" style="animation-delay: 0.3s" filter="url(#glow-cyan)" />
+    <rect x="58" y="320" width="4" height="22" rx="2" fill="#38bdf8" class="wave-bar" style="animation-delay: 0.5s" />
+    <rect x="66" y="312" width="4" height="30" rx="2" fill="#00f2fe" class="wave-bar" style="animation-delay: 0.15s" filter="url(#glow-cyan)" />
+    <rect x="74" y="322" width="4" height="20" rx="2" fill="#38bdf8" class="wave-bar" style="animation-delay: 0.7s" />
+    <rect x="82" y="316" width="4" height="26" rx="2" fill="#00f2fe" class="wave-bar" style="animation-delay: 0.25s" />
+    <rect x="90" y="326" width="4" height="16" rx="2" fill="#38bdf8" class="wave-bar" style="animation-delay: 0.45s" />
+    <rect x="98" y="318" width="4" height="24" rx="2" fill="#00f2fe" class="wave-bar" style="animation-delay: 0.35s" />
+    <rect x="106" y="330" width="4" height="12" rx="2" fill="#38bdf8" class="wave-bar" style="animation-delay: 0.55s" />
+    <rect x="114" y="324" width="4" height="18" rx="2" fill="#00f2fe" class="wave-bar" style="animation-delay: 0.2s" />
+  </g>
+
+  <!-- Connecting Glowing Laser Conduit between Arc Reactor & Center Body -->
+  <line x1="245" y1="200" x2="295" y2="200" stroke="#00f2fe" stroke-width="2.5" class="laser-bus" filter="url(#glow-cyan)" />
+  <circle cx="295" cy="200" r="3.5" fill="#00f2fe" />
+
+  <!-- ============================================== -->
+  <!-- CENTER: BRANDING & SYSTEM HEADLINE -->
+  <!-- ============================================== -->
+  <g transform="translate(305, 78)">
+    <!-- Pill Badge -->
+    <rect x="0" y="0" width="280" height="22" rx="4" fill="#0b132b" stroke="#38bdf8" stroke-width="1" />
+    <text x="140" y="15" fill="#38bdf8" font-size="9" class="font-hud" font-weight="700" text-anchor="middle">
+      ⚡ NEXT-GEN DESKTOP AI OPERATING SYSTEM ⚡
+    </text>
+
+    <!-- Main Title -->
+    <text x="0" y="62" fill="url(#title-grad)" font-size="34" class="font-title">
+      JARVIS MARK LIII
+    </text>
+
+    <!-- Subtitle -->
+    <text x="0" y="86" fill="#94a3b8" font-size="11.5" class="font-hud" font-weight="600">
+      BIDIRECTIONAL GEMINI LIVE 2.0 • 19 NATIVE OPERATING ENGINES
+    </text>
+
+    <!-- Value Statement Paragraph -->
+    <g fill="#cbd5e1" font-size="10.5" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" opacity="0.9">
+      <text x="0" y="112">Zero cloud roundtrip lag for routine desktop commands.</text>
+      <text x="0" y="128">Central deterministic command router intercepts common queries</text>
+      <text x="0" y="144">in under <tspan fill="#facc15" font-weight="700">1.8 milliseconds</tspan> with an interlocked <tspan fill="#f43f5e" font-weight="700">4-tier security gate</tspan>.</text>
+    </g>
+
+    <!-- Tags Row -->
+    <g transform="translate(0, 160)" font-size="9" class="font-mono">
+      <rect x="0" y="0" width="96" height="20" rx="4" fill="#07203d" stroke="#00f2fe" stroke-width="0.8" />
+      <text x="48" y="14" fill="#00f2fe" text-anchor="middle">&lt;1.8ms FAST</text>
+
+      <rect x="104" y="0" width="108" height="20" rx="4" fill="#1f0b2b" stroke="#c084fc" stroke-width="0.8" />
+      <text x="158" y="14" fill="#c084fc" text-anchor="middle">GEMINI LIVE 2.0</text>
+
+      <rect x="220" y="0" width="96" height="20" rx="4" fill="#2b0b13" stroke="#f43f5e" stroke-width="0.8" />
+      <text x="268" y="14" fill="#f43f5e" text-anchor="middle">4-TIER GATE</text>
+    </g>
+  </g>
+
+  <!-- ============================================== -->
+  <!-- RIGHT: 4 FLOATING DYNAMIC METRIC HUD TILES -->
+  <!-- ============================================== -->
+  <g transform="translate(630, 75)">
+    <!-- Tile 1: Fast Router -->
+    <g transform="translate(0, 0)">
+      <rect x="0" y="0" width="290" height="60" rx="8" fill="url(#metric-card-bg)" stroke="#38bdf8" stroke-width="1" />
+      <circle cx="20" cy="30" r="10" fill="#07203d" stroke="#facc15" stroke-width="1.5" />
+      <text x="20" y="34" fill="#facc15" font-size="11" text-anchor="middle" font-weight="bold">⚡</text>
+      <text x="40" y="24" fill="#ffffff" font-size="12" class="font-hud" font-weight="700">&lt;1.8ms FAST ROUTER</text>
+      <text x="40" y="42" fill="#94a3b8" font-size="9.5" class="font-hud">Zero-latency deterministic local regex bypass</text>
+    </g>
+
+    <!-- Tile 2: 97 Discovered Tools -->
+    <g transform="translate(0, 68)">
+      <rect x="0" y="0" width="290" height="60" rx="8" fill="url(#metric-card-bg)" stroke="#34d399" stroke-width="1" />
+      <circle cx="20" cy="30" r="10" fill="#064e3b" stroke="#34d399" stroke-width="1.5" />
+      <text x="20" y="34" fill="#34d399" font-size="10" text-anchor="middle" font-weight="bold">🛠️</text>
+      <text x="40" y="24" fill="#ffffff" font-size="12" class="font-hud" font-weight="700">97 NATIVE OS TOOLS</text>
+      <text x="40" y="42" fill="#94a3b8" font-size="9.5" class="font-hud">Hardware, music, files, browser, cybersec</text>
+    </g>
+
+    <!-- Tile 3: 4-Tier Security -->
+    <g transform="translate(0, 136)">
+      <rect x="0" y="0" width="290" height="60" rx="8" fill="url(#metric-card-bg)" stroke="#f43f5e" stroke-width="1" />
+      <circle cx="20" cy="30" r="10" fill="#4c0519" stroke="#f43f5e" stroke-width="1.5" />
+      <text x="20" y="34" fill="#f43f5e" font-size="10" text-anchor="middle" font-weight="bold">🛡️</text>
+      <text x="40" y="24" fill="#ffffff" font-size="12" class="font-hud" font-weight="700">4-TIER SECURITY GATE</text>
+      <text x="40" y="42" fill="#94a3b8" font-size="9.5" class="font-hud">Voice confirmation for external comms &amp; deletes</text>
+    </g>
+
+    <!-- Tile 4: Killswitch -->
+    <g transform="translate(0, 204)">
+      <rect x="0" y="0" width="290" height="60" rx="8" fill="url(#metric-card-bg)" stroke="#fbbf24" stroke-width="1" />
+      <circle cx="20" cy="30" r="10" fill="#451a03" stroke="#fbbf24" stroke-width="1.5" />
+      <text x="20" y="34" fill="#fbbf24" font-size="10" text-anchor="middle" font-weight="bold">🛑</text>
+      <text x="40" y="24" fill="#ffffff" font-size="12" class="font-hud" font-weight="700">PRIORITY 0 KILLSWITCH</text>
+      <text x="40" y="42" fill="#94a3b8" font-size="9.5" class="font-hud">Instant &lt;1ms hardware thread interrupt ("Mark stop")</text>
+    </g>
+  </g>
+
+  <!-- ============================================== -->
+  <!-- BOTTOM TELEMETRY FOOTER BAR -->
+  <!-- ============================================== -->
+  <g transform="translate(30, 375)">
+    <line x1="0" y1="0" x2="900" y2="0" stroke="#00f2fe" stroke-width="1" opacity="0.3" />
+    <circle cx="0" cy="0" r="2.5" fill="#00f2fe" />
+    <circle cx="900" cy="0" r="2.5" fill="#00f2fe" />
+
+    <text x="10" y="18" fill="#64748b" font-size="9" class="font-hud">
+      SENSORS: DUPLEX PCM • MSS RETINA • OPTICAL WEBCAM
+    </text>
+    <text x="450" y="18" fill="#38bdf8" font-size="9" class="font-hud" text-anchor="middle">
+      STATE VERIFIER: ZERO-TRUST RECURSIVE KERNEL AUDIT
+    </text>
+    <text x="890" y="18" fill="#34d399" font-size="9" class="font-hud" text-anchor="end">
+      TRILINGUAL: EN • हिन्दी • HINGLISH
+    </text>
+  </g>
+</svg>
