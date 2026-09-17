@@ -3055,7 +3055,16 @@ class MainWindow(QMainWindow):
             import PIL.Image
             import PIL.ImageDraw
             import PIL.ImageFilter
-        except ImportError:
+
+            png_cand = out_path.with_suffix(".png")
+            if not png_cand.exists():
+                png_cand = out_path.parent.parent / "assets" / "jarvis_mark_liii_logo.png"
+            if png_cand.exists():
+                img = PIL.Image.open(png_cand)
+                sizes = [(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
+                img.save(out_path, format="ICO", sizes=sizes)
+                return True
+        except Exception:
             return False
 
         CYAN   = (0, 212, 255)
