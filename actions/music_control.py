@@ -46,8 +46,8 @@ def _get_spotify_credentials() -> tuple[str, str]:
     return client_id, client_secret
 
 
-def _get_spotify_track_uri(song_name: str) -> str | None:
-    """Search Spotify for a track and return its URI (spotify:track:XXX)."""
+def _get_spotify_uri(query_str: str, search_type: str = "track") -> str | None:
+    """Search Spotify for track, artist, or album and return its URI."""
     client_id, client_secret = _get_spotify_credentials()
     if not client_id or not client_secret:
         return None
@@ -68,16 +68,19 @@ def _get_spotify_track_uri(song_name: str) -> str | None:
         if not token:
             return None
 
-        query = urllib.parse.quote(song_name)
+        q = urllib.parse.quote(query_str)
+        t = search_type if search_type in ("track", "artist", "album") else "track"
         search_req = urllib.request.Request(
-            f"https://api.spotify.com/v1/search?q={query}&type=track&limit=1",
+            f"https://api.spotify.com/v1/search?q={q}&type={t}&limit=1",
             headers={"Authorization": f"Bearer {token}"},
         )
         with urllib.request.urlopen(search_req, timeout=6) as resp:
             results = json.loads(resp.read())
-        tracks = results.get("tracks", {}).get("items", [])
-        if tracks:
-            return tracks[0]["uri"]
+
+        plural = f"{t}s"
+        items = results.get(plural, {}).get("items", [])
+        if items:
+            return items[0]["uri"]
     except Exception as e:
         print(f"[MusicControl] Spotify search failed: {e}")
     return None
@@ -101,6 +104,31 @@ def control_music(parameters: dict = None, **kwargs) -> str:
     params = parameters or {}
     action = params.get("action", "play").lower().strip()
     song_name = params.get("song_name", "").strip()
+    artist = params.get("artist", "").strip()
+    album = params.get("album", "").strip()
+    volume_level = params.get("volume")
+
+    # Volume & Mute actions
+    if action in ("volume_up", "volume_down", "volume_set", "mute", "unmute"):
+        if action == "volume_up":
+            run_applescript('tell application "Spotify" to set sound volume to (sound volume + 10)')
+            return "Increased music volume."
+        elif action == "volume_down":
+            run_applescript('tell application "Spotify" to set sound volume to (sound volume - 10)')
+            return "Decreased music volume."
+        elif action == "volume_set" and volume_level is not None:
+            try:
+                v = max(0, min(100, int(volume_level)))
+                run_applescript(f'tell application "Spotify" to set sound volume to {v}')
+                return f"Set music volume to {v}%."
+            except Exception:
+                pass
+        elif action == "mute":
+            run_applescript('tell application "Spotify" to set sound volume to 0')
+            return "Music muted."
+        elif action == "unmute":
+            run_applescript('tell application "Spotify" to set sound volume to 60')
+            return "Music unmuted."
 
     if _OS != "Darwin":
         # Cross-platform basic media key fallback
@@ -119,18 +147,52 @@ def control_music(parameters: dict = None, **kwargs) -> str:
             pass
         return "Full music search and playback requires macOS."
 
-    # 1. Play specific song
+    # 1. Search / Play Artist
+    if artist or action == "artist_search":
+        target_artist = artist or song_name
+        uri = _get_spotify_uri(target_artist, "artist")
+        if uri:
+            subprocess.run(["open", uri])
+            time.sleep(0.8)
+            run_applescript('tell application "Spotify" to play')
+            return f"🎵 Playing artist '{target_artist}' on Spotify."
+        else:
+            run_applescript(f'''
+            tell application "Spotify"
+                activate
+                play track "spotify:search:{target_artist}"
+            end tell
+            ''')
+            return f"🎵 Searching and playing artist '{target_artist}' on Spotify."
+
+    # 2. Search / Play Album
+    if album or action == "album_search":
+        target_album = album or song_name
+        uri = _get_spotify_uri(target_album, "album")
+        if uri:
+            subprocess.run(["open", uri])
+            time.sleep(0.8)
+            run_applescript('tell application "Spotify" to play')
+            return f"🎵 Playing album '{target_album}' on Spotify."
+        else:
+            run_applescript(f'''
+            tell application "Spotify"
+                activate
+                play track "spotify:search:album:{target_album}"
+            end tell
+            ''')
+            return f"🎵 Searching and playing album '{target_album}' on Spotify."
+
+    # 3. Play specific song
     if song_name or action == "play_song":
         target = song_name or action
-        track_uri = _get_spotify_track_uri(target)
+        track_uri = _get_spotify_uri(target, "track")
         if track_uri:
-            # Tell Spotify to open and play the URI
             subprocess.run(["open", track_uri])
             time.sleep(0.8)
             run_applescript('tell application "Spotify" to play')
             return f"🎵 Playing '{target}' on Spotify."
         else:
-            # Fallback: Search & play directly via Spotify app or Apple Music
             script = f'''
             tell application "Spotify"
                 activate
@@ -140,7 +202,6 @@ def control_music(parameters: dict = None, **kwargs) -> str:
             res = run_applescript(script)
             if "error" not in res.lower():
                 return f"🎵 Searching and playing '{target}' on Spotify."
-            # Fallback to Apple Music
             script_music = f'''
             tell application "Music"
                 activate
@@ -152,7 +213,7 @@ def control_music(parameters: dict = None, **kwargs) -> str:
                 return f"🎵 Playing '{target}' on Apple Music."
             return f"Could not find or play '{target}' on Spotify or Apple Music."
 
-    # 2. Pause
+    # 4. Pause
     if action == "pause":
         run_applescript('''
         try
@@ -164,7 +225,7 @@ def control_music(parameters: dict = None, **kwargs) -> str:
         ''')
         return "Music paused."
 
-    # 3. Resume / Play
+    # 5. Resume / Play
     if action in ("play", "resume"):
         script = '''
         if application "Spotify" is running then
@@ -181,7 +242,7 @@ def control_music(parameters: dict = None, **kwargs) -> str:
         '''
         return run_applescript(script)
 
-    # 4. Next Track
+    # 6. Next Track
     if action == "next":
         run_applescript('''
         if application "Spotify" is running then
@@ -192,7 +253,7 @@ def control_music(parameters: dict = None, **kwargs) -> str:
         ''')
         return "Skipped to next track."
 
-    # 5. Previous Track
+    # 7. Previous Track
     if action in ("previous", "prev"):
         run_applescript('''
         if application "Spotify" is running then
@@ -203,7 +264,7 @@ def control_music(parameters: dict = None, **kwargs) -> str:
         ''')
         return "Returned to previous track."
 
-    # 6. Current playing track info
+    # 8. Current playing track info
     if action in ("current", "now_playing", "info"):
         script = '''
         if application "Spotify" is running then
@@ -230,17 +291,29 @@ def control_music(parameters: dict = None, **kwargs) -> str:
 
 TOOL = {
     "name": "control_music",
-    "description": "Controls music playback on Spotify or Apple Music. Can play specific songs by title, pause, resume, skip tracks, go to previous track, or get current track info.",
+    "description": "Controls music playback on Spotify or Apple Music: play songs, artists, albums, pause, resume, skip tracks, previous track, volume control, mute/unmute, and currently playing info.",
     "parameters": {
         "type": "OBJECT",
         "properties": {
             "action": {
                 "type": "STRING",
-                "description": "One of: play | pause | resume | next | previous | current"
+                "description": "One of: play | pause | resume | next | previous | current | volume_up | volume_down | volume_set | mute | unmute | artist_search | album_search"
             },
             "song_name": {
                 "type": "STRING",
-                "description": "The song title and/or artist name to play (e.g. 'Bohemian Rhapsody', 'Shape of You', 'Starboy')."
+                "description": "Song title to play (e.g. 'Bohemian Rhapsody', 'Starboy')."
+            },
+            "artist": {
+                "type": "STRING",
+                "description": "Artist name to play (e.g. 'Arijit Singh', 'The Weeknd', 'Coldplay')."
+            },
+            "album": {
+                "type": "STRING",
+                "description": "Album title to play."
+            },
+            "volume": {
+                "type": "INTEGER",
+                "description": "Volume level 0-100 for volume_set action."
             }
         },
         "required": ["action"]

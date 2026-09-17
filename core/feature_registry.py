@@ -92,12 +92,28 @@ BUILT_IN_FEATURES: Dict[str, FeatureInfo] = {
         description="Webcam capture with explicit permission, visible camera status",
     ),
     "developer_mode": FeatureInfo(
-        providers=["dev_agent.py", "code_helper.py"],
+        providers=["dev_tools.py", "dev_agent.py", "code_helper.py"],
         description="Terminal, Python execution, Git, VS Code, build, test, debug",
     ),
     "memory": FeatureInfo(
         providers=["memory_manager.py"],
         description="Save, retrieve, update, forget user preferences and context",
+    ),
+    "task_execution": FeatureInfo(
+        providers=["task_executor.py"],
+        description="Multi-step task pipeline: Understand -> Plan -> Execute -> Verify -> Recover -> Report",
+    ),
+    "command_router": FeatureInfo(
+        providers=["command_router.py"],
+        description="Central deterministic command router bypassing LLM for simple queries",
+    ),
+    "permissions": FeatureInfo(
+        providers=["permissions.py", "confirm.py"],
+        description="4-tier security system: Read, Safe, External (confirm), Destructive (confirm)",
+    ),
+    "verification": FeatureInfo(
+        providers=["verification.py"],
+        description="Post-action state verification: files, apps, commands, URLs",
     ),
     "automation": FeatureInfo(
         providers=["computer_control.py", "computer_settings.py"],
@@ -105,7 +121,7 @@ BUILT_IN_FEATURES: Dict[str, FeatureInfo] = {
     ),
     "security": FeatureInfo(
         providers=["cybersec_tools.py", "system_control.py"],
-        description="Network diagnostics, port inspection, connection monitoring",
+        description="Network diagnostics, port inspection, connection monitoring, defensive tests",
     ),
     "web_search": FeatureInfo(
         providers=["web_search.py"],

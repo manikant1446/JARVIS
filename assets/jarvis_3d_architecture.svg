@@ -1,0 +1,294 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 680" width="100%" height="100%">
+  <defs>
+    <!-- Glow Filters -->
+    <filter id="glow-cyan" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <filter id="glow-amber" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <filter id="glow-purple" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <filter id="glow-crimson" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+    <filter id="glow-emerald" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5" result="blur" />
+      <feMerge>
+        <feMergeNode in="blur" />
+        <feMergeNode in="SourceGraphic" />
+      </feMerge>
+    </filter>
+
+    <!-- Linear Gradients for Isometric Slabs -->
+    <linearGradient id="bg-canvas" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#020617" />
+      <stop offset="50%" stop-color="#090d1f" />
+      <stop offset="100%" stop-color="#030712" />
+    </linearGradient>
+
+    <!-- Slab 1: Cyan (Perception) -->
+    <linearGradient id="top-slab1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0369a1" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#0284c7" stop-opacity="0.45" />
+    </linearGradient>
+    <linearGradient id="side-slab1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#075985" />
+      <stop offset="100%" stop-color="#0c4a6e" />
+    </linearGradient>
+
+    <!-- Slab 2: Amber (Fast-Path Router) -->
+    <linearGradient id="top-slab2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#d97706" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#f59e0b" stop-opacity="0.45" />
+    </linearGradient>
+    <linearGradient id="side-slab2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b45309" />
+      <stop offset="100%" stop-color="#78350f" />
+    </linearGradient>
+
+    <!-- Slab 3: Purple (Gemini Cognitive Core) -->
+    <linearGradient id="top-slab3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#7c3aed" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#9333ea" stop-opacity="0.45" />
+    </linearGradient>
+    <linearGradient id="side-slab3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6d28d9" />
+      <stop offset="100%" stop-color="#4c1d95" />
+    </linearGradient>
+
+    <!-- Slab 4: Crimson (Security Gate) -->
+    <linearGradient id="top-slab4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#e11d48" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#f43f5e" stop-opacity="0.45" />
+    </linearGradient>
+    <linearGradient id="side-slab4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#be123c" />
+      <stop offset="100%" stop-color="#881337" />
+    </linearGradient>
+
+    <!-- Slab 5: Emerald (Native OS & Verifier) -->
+    <linearGradient id="top-slab5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#059669" stop-opacity="0.85" />
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0.45" />
+    </linearGradient>
+    <linearGradient id="side-slab5" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#047857" />
+      <stop offset="100%" stop-color="#064e3b" />
+    </linearGradient>
+  </defs>
+
+  <style>
+    .iso-label {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "SF Pro Display", monospace;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+    }
+    .iso-desc {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, monospace;
+      font-size: 9.5px;
+      font-weight: 500;
+      letter-spacing: 0.5px;
+    }
+    .pulse-line {
+      stroke-dasharray: 6 14;
+      animation: busFlow 12s linear infinite;
+    }
+    @keyframes busFlow {
+      from { stroke-dashoffset: 0; }
+      to { stroke-dashoffset: -200; }
+    }
+  </style>
+
+  <!-- Background Base Canvas -->
+  <rect width="900" height="680" rx="16" fill="url(#bg-canvas)" stroke="#1e293b" stroke-width="1.5" />
+
+  <!-- Background Perspective Grid -->
+  <g opacity="0.12" stroke="#38bdf8" stroke-width="0.8">
+    <line x1="150" y1="40" x2="750" y2="640" />
+    <line x1="250" y1="40" x2="850" y2="640" />
+    <line x1="50" y1="40" x2="650" y2="640" />
+    <line x1="750" y1="40" x2="150" y2="640" />
+    <line x1="850" y1="40" x2="250" y2="640" />
+    <line x1="650" y1="40" x2="50" y2="640" />
+  </g>
+
+  <!-- Title Header -->
+  <g text-anchor="middle">
+    <text x="450" y="38" fill="#00f2fe" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', monospace" font-size="14" font-weight="800" letter-spacing="3">
+      ⚡ MARK LIII • 3D ISOMETRIC ARCHITECTURE STACK ⚡
+    </text>
+    <text x="450" y="54" fill="#64748b" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', monospace" font-size="10" letter-spacing="1.5">
+      5-TIER AUTONOMOUS COGNITIVE &amp; OPERATING SYSTEM PIPELINE
+    </text>
+  </g>
+
+  <!-- Vertical Connecting Data Conduits (Pillars) -->
+  <!-- Left Bus (Fast-Path Flow) -->
+  <line x1="260" y1="145" x2="260" y2="585" stroke="#f59e0b" stroke-width="2.5" class="pulse-line" opacity="0.75" />
+  <!-- Center Core Bus (Cognitive Stream) -->
+  <line x1="450" y1="145" x2="450" y2="585" stroke="#00f2fe" stroke-width="3" class="pulse-line" opacity="0.85" filter="url(#glow-cyan)" />
+  <!-- Right Bus (Security & State Flow) -->
+  <line x1="640" y1="145" x2="640" y2="585" stroke="#10b981" stroke-width="2.5" class="pulse-line" opacity="0.75" />
+
+  <!-- ========================================== -->
+  <!-- LAYER 5 (BOTTOM): NATIVE OS & STATE VERIFIER (cx=450, cy=550) -->
+  <!-- ========================================== -->
+  <g id="layer-5">
+    <!-- Isometric Slab Geometry -->
+    <!-- Extrusion Left Side -->
+    <polygon points="170,550 450,610 450,625 170,565" fill="url(#side-slab5)" stroke="#10b981" stroke-width="1" />
+    <!-- Extrusion Right Side -->
+    <polygon points="450,610 730,550 730,565 450,625" fill="#047857" stroke="#10b981" stroke-width="1" />
+    <!-- Top Face -->
+    <polygon points="450,490 730,550 450,610 170,550" fill="url(#top-slab5)" stroke="#34d399" stroke-width="1.5" filter="url(#glow-emerald)" />
+
+    <!-- Details on Top Face -->
+    <g class="iso-label" fill="#ecfdf5" text-anchor="middle">
+      <text x="450" y="542" fill="#ffffff">LAYER 5: NATIVE macOS INTEGRATION &amp; STATE VERIFIER</text>
+    </g>
+    <g class="iso-desc" fill="#a7f3d0" text-anchor="middle">
+      <text x="450" y="562">Darwin Kernel • AppleScript Bridge • Playwright Profile • Sandboxed Shell • Safe FS</text>
+      <text x="450" y="578">State Verifier: verify_file_exists • verify_app_running • verify_command_success</text>
+    </g>
+    <circle cx="450" cy="550" r="4" fill="#34d399" filter="url(#glow-emerald)" />
+  </g>
+
+  <!-- ========================================== -->
+  <!-- LAYER 4: 4-TIER SECURITY PERMISSION GATE (cx=450, cy=440) -->
+  <!-- ========================================== -->
+  <g id="layer-4">
+    <!-- Extrusion Left Side -->
+    <polygon points="170,440 450,500 450,515 170,455" fill="url(#side-slab4)" stroke="#f43f5e" stroke-width="1" />
+    <!-- Extrusion Right Side -->
+    <polygon points="450,500 730,440 730,455 450,515" fill="#be123c" stroke="#f43f5e" stroke-width="1" />
+    <!-- Top Face -->
+    <polygon points="450,380 730,440 450,500 170,440" fill="url(#top-slab4)" stroke="#fb7185" stroke-width="1.5" filter="url(#glow-crimson)" />
+
+    <!-- Details on Top Face -->
+    <g class="iso-label" fill="#fff1f2" text-anchor="middle">
+      <text x="450" y="432" fill="#ffffff">LAYER 4: 4-TIER PERMISSION CONTROLLER &amp; CONFIRMATION GATE</text>
+    </g>
+    <g class="iso-desc" fill="#fecdd3" text-anchor="middle">
+      <text x="450" y="452">L0: Read (Auto) • L1: Safe (Auto) • L2: External Comms (Voice Gate) • L3: Destructive (Confirmed)</text>
+      <text x="450" y="468">90s Timeout • Voice Keywords: 'Confirm', 'Yes', 'Haan' • HUD Interactive Modals</text>
+    </g>
+    <circle cx="450" cy="440" r="4" fill="#fb7185" filter="url(#glow-crimson)" />
+  </g>
+
+  <!-- ========================================== -->
+  <!-- LAYER 3: GEMINI LIVE 2.0 MULTIMODAL CORE (cx=450, cy=330) -->
+  <!-- ========================================== -->
+  <g id="layer-3">
+    <!-- Extrusion Left Side -->
+    <polygon points="170,330 450,390 450,405 170,345" fill="url(#side-slab3)" stroke="#9333ea" stroke-width="1" />
+    <!-- Extrusion Right Side -->
+    <polygon points="450,390 730,330 730,345 450,405" fill="#6d28d9" stroke="#9333ea" stroke-width="1" />
+    <!-- Top Face -->
+    <polygon points="450,270 730,330 450,390 170,330" fill="url(#top-slab3)" stroke="#c084fc" stroke-width="1.5" filter="url(#glow-purple)" />
+
+    <!-- Details on Top Face -->
+    <g class="iso-label" fill="#faf5ff" text-anchor="middle">
+      <text x="450" y="322" fill="#ffffff">LAYER 3: GEMINI LIVE 2.0 MULTIMODAL COGNITIVE CORE</text>
+    </g>
+    <g class="iso-desc" fill="#e9d5ff" text-anchor="middle">
+      <text x="450" y="342">Bidirectional Live Audio (24kHz) • Multimodal Vision • 97 Discovered Action Tools</text>
+      <text x="450" y="358">Multi-Step Task Pipeline: Understand → Plan → Execute → Verify → Recover → Report</text>
+    </g>
+    <circle cx="450" cy="330" r="5" fill="#e9d5ff" filter="url(#glow-purple)" />
+  </g>
+
+  <!-- ========================================== -->
+  <!-- LAYER 2: CENTRAL DETERMINISTIC FAST-PATH ROUTER (cx=450, cy=220) -->
+  <!-- ========================================== -->
+  <g id="layer-2">
+    <!-- Extrusion Left Side -->
+    <polygon points="170,220 450,280 450,295 170,235" fill="url(#side-slab2)" stroke="#f59e0b" stroke-width="1" />
+    <!-- Extrusion Right Side -->
+    <polygon points="450,280 730,220 730,235 450,295" fill="#b45309" stroke="#f59e0b" stroke-width="1" />
+    <!-- Top Face -->
+    <polygon points="450,160 730,220 450,280 170,220" fill="url(#top-slab2)" stroke="#fcd34d" stroke-width="1.5" filter="url(#glow-amber)" />
+
+    <!-- Details on Top Face -->
+    <g class="iso-label" fill="#fffbeb" text-anchor="middle">
+      <text x="450" y="212" fill="#ffffff">LAYER 2: CENTRAL DETERMINISTIC COMMAND ROUTER (&lt;2MS)</text>
+    </g>
+    <g class="iso-desc" fill="#fde68a" text-anchor="middle">
+      <text x="450" y="232">Zero-Latency Local Bypass: Hardware, Battery, WiFi, Spotify Music, Reminders, DND</text>
+      <text x="450" y="248">Global Emergency Killswitch: 'Mark stop' / 'Ruk jao' (Priority 0 Instant Halt)</text>
+    </g>
+    <circle cx="450" cy="220" r="4" fill="#fde68a" filter="url(#glow-amber)" />
+  </g>
+
+  <!-- ========================================== -->
+  <!-- LAYER 1 (TOP): 3D SENSORY & PERCEPTION ARRAY (cx=450, cy=110) -->
+  <!-- ========================================== -->
+  <g id="layer-1">
+    <!-- Extrusion Left Side -->
+    <polygon points="170,110 450,170 450,185 170,125" fill="url(#side-slab1)" stroke="#0284c7" stroke-width="1" />
+    <!-- Extrusion Right Side -->
+    <polygon points="450,170 730,110 730,125 450,185" fill="#075985" stroke="#0284c7" stroke-width="1" />
+    <!-- Top Face -->
+    <polygon points="450,50 730,110 450,170 170,110" fill="url(#top-slab1)" stroke="#00f2fe" stroke-width="1.8" filter="url(#glow-cyan)" />
+
+    <!-- Details on Top Face -->
+    <g class="iso-label" fill="#f0f9ff" text-anchor="middle">
+      <text x="450" y="102" fill="#ffffff">LAYER 1: SENSORY PERCEPTION &amp; DUPLEX I/O MATRIX</text>
+    </g>
+    <g class="iso-desc" fill="#bae6fd" text-anchor="middle">
+      <text x="450" y="122">24kHz PCM Full-Duplex Audio Stream • Screen Vision (Quartz/MSS) • On-Demand Optical Webcam</text>
+      <text x="450" y="138">Multi-Lingual NLP Normalizer (English / Hindi / Hinglish) • PyAudio Low-Latency Buffer</text>
+    </g>
+    <circle cx="450" cy="110" r="5" fill="#00f2fe" filter="url(#glow-cyan)" />
+  </g>
+
+  <!-- Side Callout Legend Badges -->
+  <g class="iso-label" font-size="9" fill="#94a3b8">
+    <!-- Left Labels -->
+    <g transform="translate(40, 215)">
+      <rect x="0" y="0" width="105" height="24" rx="4" fill="#0b132b" stroke="#f59e0b" stroke-width="1" />
+      <text x="52" y="15" fill="#fcd34d" text-anchor="middle">&lt;2ms FAST-PATH</text>
+    </g>
+    <g transform="translate(40, 325)">
+      <rect x="0" y="0" width="105" height="24" rx="4" fill="#0b132b" stroke="#9333ea" stroke-width="1" />
+      <text x="52" y="15" fill="#d8b4fe" text-anchor="middle">GEMINI BRAIN</text>
+    </g>
+
+    <!-- Right Labels -->
+    <g transform="translate(755, 435)">
+      <rect x="0" y="0" width="105" height="24" rx="4" fill="#0b132b" stroke="#f43f5e" stroke-width="1" />
+      <text x="52" y="15" fill="#f43f5e" text-anchor="middle">4-TIER SECURITY</text>
+    </g>
+    <g transform="translate(755, 545)">
+      <rect x="0" y="0" width="105" height="24" rx="4" fill="#0b132b" stroke="#10b981" stroke-width="1" />
+      <text x="52" y="15" fill="#34d399" text-anchor="middle">STATE VERIFIER</text>
+    </g>
+  </g>
+
+  <!-- Bottom Holographic Footer -->
+  <g text-anchor="middle" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', monospace">
+    <line x1="200" y1="645" x2="700" y2="645" stroke="#38bdf8" stroke-width="1" opacity="0.3" />
+    <text x="450" y="662" fill="#64748b" font-size="9" letter-spacing="1">
+      ISOMETRIC SCHEMATIC REF: MK-LIII-ISO-2026 • DEPLOYED ON DARWIN KERNEL 24.1.0
+    </text>
+  </g>
+</svg>

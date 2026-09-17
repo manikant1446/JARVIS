@@ -39,6 +39,25 @@ _BASE         = _base_dir()
 _CONFIG_PATH  = _BASE / "config" / "api_keys.json"
 _MEMORY_PATH  = _BASE / "memory" / "long_term.json"
 
+_EMERGENCY_STOP = False
+
+
+def emergency_stop() -> None:
+    global _EMERGENCY_STOP
+    _EMERGENCY_STOP = True
+    print("[ComputerControl] 🛑 Global Emergency Stop ACTIVATED!")
+
+
+def clear_emergency_stop() -> None:
+    global _EMERGENCY_STOP
+    _EMERGENCY_STOP = False
+    print("[ComputerControl] ✅ Emergency Stop cleared.")
+
+
+def is_emergency_stopped() -> bool:
+    return _EMERGENCY_STOP
+
+
 def _load_config() -> dict:
     try:
         return json.loads(_CONFIG_PATH.read_text(encoding="utf-8"))
@@ -458,6 +477,17 @@ def computer_control(
     if not action:
         return "No action specified for computer_control."
 
+    if action in ("emergency_stop", "stop"):
+        emergency_stop()
+        return "🛑 Emergency stop activated. All automation cancelled."
+
+    if action in ("clear_stop", "resume"):
+        clear_emergency_stop()
+        return "✅ Emergency stop cleared. Automation resumed."
+
+    if is_emergency_stopped():
+        return "🛑 Automation is blocked by Emergency Stop. Say 'clear stop' or 'resume' to proceed."
+
     if player:
         player.write_log(f"[Computer] {action}")
 
@@ -571,7 +601,7 @@ TOOL = {
         "properties": {
             "action": {
                 "type": "STRING",
-                "description": "type | smart_type | click | double_click | right_click | hotkey | press | scroll | move | copy | paste | screenshot | wait | clear_field | focus_window | screen_find | screen_click | random_data | user_data"
+                "description": "type | smart_type | click | double_click | right_click | hotkey | press | scroll | move | copy | paste | screenshot | wait | clear_field | focus_window | screen_find | screen_click | random_data | user_data | emergency_stop | clear_stop"
             },
             "text": {
                 "type": "STRING",

@@ -133,10 +133,36 @@ def _truncate_value(val: str) -> str:
     return val
 
 
+_SENSITIVE_PATTERNS = [
+    r"password",
+    r"passwd",
+    r"api[_-]?key",
+    r"auth[_-]?token",
+    r"bearer\s+[a-zA-Z0-9_\-\.]{12,}",
+    r"private[_-]?key",
+    r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
+    r"secret[_-]?key",
+    r"credential",
+]
+
+
+def is_sensitive(text: str) -> bool:
+    if not isinstance(text, str):
+        return False
+    t = text.lower()
+    for pat in _SENSITIVE_PATTERNS:
+        if re.search(pat, t, re.IGNORECASE):
+            return True
+    return False
+
+
 def _recursive_update(target: dict, updates: dict) -> bool:
     changed = False
     for key, value in updates.items():
         if value is None:
+            continue
+        if is_sensitive(str(key)) or is_sensitive(str(value)):
+            print(f"[Memory] 🛡️ Refused to store sensitive key/value '{key}'.")
             continue
         if isinstance(value, str) and not value.strip():
             continue
@@ -405,6 +431,8 @@ def remember(key: str, value: str, category: str = "notes") -> str:
     valid = {"identity", "preferences", "projects", "relationships", "wishes", "notes"}
     if category not in valid:
         category = "notes"
+    if is_sensitive(key) or is_sensitive(value):
+        return "🛡️ Security policy: MARK LIII does not store passwords, API keys, tokens, or private credentials."
     update_memory({category: {key: {"value": value}}})
     return f"Remembered: {category}/{key} = {value}"
 

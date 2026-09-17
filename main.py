@@ -598,12 +598,40 @@ class JarvisLive:
     def _on_text_command(self, text: str):
         if not self._loop or not self.session:
             return
-        # Respect wake-word sleep: a typed command must not be answered while
-        # asleep either (the sleep gate is not just for the mic). Wake first with
-        # "Hey Jarvis" or the WAKE NOW button.
         if self._wake_enabled and not self._awake:
             self.ui.write_log("SYS: I'm asleep — say 'Hey Jarvis' or tap WAKE NOW first.")
             return
+
+        # 1. Emergency stop check
+        low = text.lower().strip()
+        if low in ("mark stop", "stop", "ruk jao", "cancel automation", "emergency stop"):
+            from actions.computer_control import emergency_stop
+            from core.task_executor import request_emergency_stop
+            emergency_stop()
+            request_emergency_stop()
+            self.interrupt()
+            self.ui.write_log("🛑 EMERGENCY STOP: All active automation halted.")
+            return
+
+        # 2. Confirmation gate voice/text resolution
+        from core import confirm
+        if confirm.pending_title():
+            if any(w in low for w in ("yes", "confirm", "haan", "proceed", "kardo", "kar do")):
+                confirm.resolve(True)
+                self.ui.write_log("✅ Confirmed via command.")
+                return
+            elif any(w in low for w in ("no", "cancel", "mat karo", "nahin", "nahi", "reject")):
+                confirm.resolve(False)
+                self.ui.write_log("❌ Cancelled via command.")
+                return
+
+        # 3. Deterministic command routing (bypasses LLM for instant local actions)
+        from core.command_router import route_command
+        handled, route_res = route_command(text)
+        if handled:
+            self.ui.write_log(f"{self._asst_name}: {route_res}")
+            return
+
         asyncio.run_coroutine_threadsafe(
             self.session.send_client_content(
                 turns={"role": "user", "parts": [{"text": text}]},
@@ -1027,6 +1055,25 @@ class JarvisLive:
                             if txt:
                                 in_buf.append(txt)
                                 self._last_user_speech = time.monotonic()
+                                low_txt = txt.lower().strip()
+                                # Emergency stop voice command
+                                if any(x in low_txt for x in ("mark stop", "emergency stop", "ruk jao mark")):
+                                    from actions.computer_control import emergency_stop
+                                    from core.task_executor import request_emergency_stop
+                                    emergency_stop()
+                                    request_emergency_stop()
+                                    self.interrupt()
+                                    self.ui.write_log("🛑 EMERGENCY STOP: Voice command triggered stop.")
+
+                                # Confirmation gate voice resolution
+                                from core import confirm
+                                if confirm.pending_title():
+                                    if any(w in low_txt for w in ("confirm", "yes", "haan", "kar do", "kardo")):
+                                        confirm.resolve(True)
+                                        self.ui.write_log("✅ Confirmed via voice.")
+                                    elif any(w in low_txt for w in ("cancel", "mat karo", "nahin", "nahi")):
+                                        confirm.resolve(False)
+                                        self.ui.write_log("❌ Cancelled via voice.")
 
                         if sc.turn_complete:
                             if self._turn_done_event:

@@ -1,12 +1,14 @@
 """
-actions/messaging_tools.py — Native Apple Messages (iMessage), WhatsApp, and FaceTime ported from Layra.
-Supports: sending iMessages, checking unread messages, sending WhatsApp messages, and starting FaceTime video/audio calls.
+actions/messaging_tools.py — Native Apple Messages (iMessage), WhatsApp, and FaceTime.
+Supports: sending iMessages, checking unread messages, searching messages, drafting messages,
+sending WhatsApp messages, and starting FaceTime video/audio calls with Level 2 confirmation gating.
 """
 from __future__ import annotations
 
 import platform
 import subprocess
 import time
+from core.permissions import PermissionLevel, execute_with_permission, is_trusted_send_messages
 
 _OS = platform.system()
 
@@ -36,26 +38,39 @@ def send_imessage(parameters: dict = None, **kwargs) -> str:
     if not contact or not message:
         return "Please provide both recipient contact/number and message text."
 
-    safe_message = message.replace('"', '\\"').replace("'", "\\'")
-    safe_contact = contact.replace('"', '\\"')
+    # Avoid ambiguous contact guessing
+    if "," in contact or " or " in contact.lower() or " / " in contact:
+        return f"Ambiguous recipient '{contact}'. Please specify a single exact contact name or phone number."
 
-    script = f'''
-    tell application "Messages"
-        try
-            set targetService to 1st service whose service type = iMessage
-            set targetBuddy to buddy "{safe_contact}" of targetService
-            send "{safe_message}" to targetBuddy
-            return "ok"
-        on error
-            send "{safe_message}" to buddy "{safe_contact}" of (1st account)
-            return "ok"
-        end try
-    end tell
-    '''
-    res = run_applescript(script)
-    if "error" in res.lower() and res != "ok":
-        return f"Could not send iMessage: {res}"
-    return f"💬 iMessage sent to {contact}: '{message[:60]}...'" if len(message) > 60 else f"💬 iMessage sent to {contact}: '{message}'"
+    def _do_send() -> str:
+        safe_message = message.replace('"', '\\"').replace("'", "\\'")
+        safe_contact = contact.replace('"', '\\"')
+
+        script = f'''
+        tell application "Messages"
+            try
+                set targetService to 1st service whose service type = iMessage
+                set targetBuddy to buddy "{safe_contact}" of targetService
+                send "{safe_message}" to targetBuddy
+                return "ok"
+            on error
+                send "{safe_message}" to buddy "{safe_contact}" of (1st account)
+                return "ok"
+            end try
+        end tell
+        '''
+        res = run_applescript(script)
+        if "error" in res.lower() and res != "ok":
+            return f"Could not send iMessage: {res}"
+        return f"💬 iMessage sent to {contact}: '{message[:60]}...'" if len(message) > 60 else f"💬 iMessage sent to {contact}: '{message}'"
+
+    return execute_with_permission(
+        level=PermissionLevel.LEVEL_2_EXTERNAL,
+        title=f"Send iMessage to {contact}",
+        detail=f"Recipient: {contact}\nMessage: '{message}'",
+        action_fn=_do_send,
+        trusted_override=is_trusted_send_messages(),
+    )
 
 
 def get_unread_messages(parameters: dict = None, **kwargs) -> str:
@@ -84,6 +99,44 @@ def get_unread_messages(parameters: dict = None, **kwargs) -> str:
     return run_applescript(script)
 
 
+def search_messages(parameters: dict = None, **kwargs) -> str:
+    """Search for conversations or chats in Apple Messages."""
+    if _OS != "Darwin":
+        return "macOS Messages search is only supported on macOS."
+    query = (parameters or {}).get("query", "").strip()
+    if not query:
+        return "Please specify a search query for messages."
+    safe_query = query.replace('"', '\\"').replace("'", "\\'")
+    script = f'''
+    tell application "Messages"
+        set matchedChats to {{}}
+        repeat with aChat in chats
+            set chatName to name of aChat
+            if chatName contains "{safe_query}" then
+                set end of matchedChats to chatName
+            end if
+        end repeat
+        if (count of matchedChats) is 0 then
+            return "No conversations matching '{safe_query}' found."
+        end if
+        set AppleScript's text item delimiters to linefeed
+        return "Matching conversations for '{safe_query}':" & linefeed & (matchedChats as text)
+    end tell
+    '''
+    return run_applescript(script)
+
+
+def draft_message(parameters: dict = None, **kwargs) -> str:
+    """Drafts a message and displays recipient and text for review before sending."""
+    params = parameters or {}
+    contact = params.get("contact", "").strip()
+    message = params.get("message", "").strip()
+    channel = params.get("channel", "iMessage").strip()
+    if not contact or not message:
+        return "Please provide both recipient and message to draft."
+    return f"📝 Draft Message ({channel}):\nRecipient: {contact}\nContent: '{message}'\nTo send this, say: 'Send {channel} to {contact}'."
+
+
 def send_whatsapp_message(parameters: dict = None, **kwargs) -> str:
     """Send a WhatsApp message via WhatsApp desktop app."""
     params = parameters or {}
@@ -93,7 +146,13 @@ def send_whatsapp_message(parameters: dict = None, **kwargs) -> str:
     if not contact or not message:
         return "Please specify both recipient and message text."
 
-    if _OS == "Darwin":
+    if "," in contact or " or " in contact.lower() or " / " in contact:
+        return f"Ambiguous recipient '{contact}'. Please specify a single exact WhatsApp contact name."
+
+    if _OS != "Darwin":
+        return "WhatsApp desktop automation is optimized for macOS."
+
+    def _do_send() -> str:
         safe_message = message.replace('"', '\\"').replace("'", "\\'")
         subprocess.run(["open", "-a", "WhatsApp"])
         time.sleep(1.2)
@@ -120,7 +179,13 @@ def send_whatsapp_message(parameters: dict = None, **kwargs) -> str:
         res = run_applescript(script)
         return f"📱 WhatsApp message sent to {contact}."
 
-    return "WhatsApp desktop automation is optimized for macOS."
+    return execute_with_permission(
+        level=PermissionLevel.LEVEL_2_EXTERNAL,
+        title=f"Send WhatsApp message to {contact}",
+        detail=f"Recipient: {contact}\nMessage: '{message}'",
+        action_fn=_do_send,
+        trusted_override=is_trusted_send_messages(),
+    )
 
 
 def start_facetime(parameters: dict = None, **kwargs) -> str:
@@ -151,7 +216,7 @@ def start_audio_call(parameters: dict = None, **kwargs) -> str:
 TOOLS = [
     {
         "name": "send_imessage",
-        "description": "Sends an iMessage or SMS text message to a contact or phone number using Apple Messages.",
+        "description": "Sends an iMessage or SMS text message to a contact or phone number using Apple Messages. Requires Level 2 confirmation.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
@@ -179,8 +244,46 @@ TOOLS = [
         "handler": get_unread_messages,
     },
     {
+        "name": "search_messages",
+        "description": "Searches Apple Messages for chat conversations matching a contact name or keyword.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "query": {
+                    "type": "STRING",
+                    "description": "Contact name or keyword to search for in conversations."
+                }
+            },
+            "required": ["query"]
+        },
+        "handler": search_messages,
+    },
+    {
+        "name": "draft_message",
+        "description": "Drafts and prepares a message (iMessage or WhatsApp) for user review without sending.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "contact": {
+                    "type": "STRING",
+                    "description": "Recipient contact or phone number."
+                },
+                "message": {
+                    "type": "STRING",
+                    "description": "Message content to draft."
+                },
+                "channel": {
+                    "type": "STRING",
+                    "description": "Channel to use: 'iMessage' or 'WhatsApp'."
+                }
+            },
+            "required": ["contact", "message"]
+        },
+        "handler": draft_message,
+    },
+    {
         "name": "send_whatsapp_message",
-        "description": "Sends a message via WhatsApp desktop application to a recipient.",
+        "description": "Sends a message via WhatsApp desktop application to a recipient. Requires Level 2 confirmation.",
         "parameters": {
             "type": "OBJECT",
             "properties": {

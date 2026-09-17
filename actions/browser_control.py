@@ -1046,8 +1046,22 @@ def browser_control(
             result = sess.run(sess.smart_click(params.get("description", "")))
         elif action == "smart_type":
             result = sess.run(sess.smart_type(params.get("description", ""), params.get("text", "")))
-        elif action == "get_text":
+        elif action == "get_text" or action == "extract_info":
             result = sess.run(sess.get_text())
+        elif action == "summary":
+            text = sess.run(sess.get_text())
+            lines = [l.strip() for l in text.splitlines() if l.strip()]
+            summary_preview = "\n".join(lines[:15])
+            result = f"📄 Webpage Summary ({len(text)} chars):\n{summary_preview}"
+        elif action == "download":
+            target_url = params.get("url", "")
+            save_path = params.get("path", str(Path.home() / "Downloads" / "downloaded_file"))
+            try:
+                import urllib.request
+                urllib.request.urlretrieve(target_url, save_path)
+                result = f"📥 Downloaded successfully to: {save_path}"
+            except Exception as e:
+                result = f"Download failed: {e}"
         elif action == "get_url":
             result = sess.run(sess.get_url())
         elif action == "press":

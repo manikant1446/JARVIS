@@ -7,9 +7,13 @@ from __future__ import annotations
 
 import os
 import platform
+import shutil
 import subprocess
 import time
 from pathlib import Path
+
+import psutil
+from core.permissions import PermissionLevel, execute_with_permission
 
 _OS = platform.system()
 
@@ -43,7 +47,6 @@ def get_battery_status(parameters: dict = None, **kwargs) -> str:
             return f"Battery check failed: {e}"
     elif _OS == "Windows":
         try:
-            import psutil
             b = psutil.sensors_battery()
             if b:
                 plugged = "Plugged in" if b.power_plugged else "On battery"
@@ -54,7 +57,7 @@ def get_battery_status(parameters: dict = None, **kwargs) -> str:
 
 
 def get_network_info(parameters: dict = None, **kwargs) -> str:
-    """Get network details: Wi-Fi SSID, local IP address, and default gateway."""
+    """Get network details: Wi-Fi SSID, local IP address, interface status, and public IP."""
     info_lines = []
     if _OS == "Darwin":
         # Get active Wi-Fi SSID
@@ -63,7 +66,9 @@ def get_network_info(parameters: dict = None, **kwargs) -> str:
                 ["networksetup", "-getairportnetwork", "en0"],
                 capture_output=True, text=True, timeout=5
             )
-            info_lines.append(res.stdout.strip())
+            out = res.stdout.strip()
+            if out and "error" not in out.lower():
+                info_lines.append(f"📶 {out}")
         except Exception:
             pass
 
@@ -79,7 +84,26 @@ def get_network_info(parameters: dict = None, **kwargs) -> str:
         except Exception:
             pass
 
-    # Public IP / general fallback
+    # Network interface statuses
+    try:
+        stats = psutil.net_if_stats()
+        addrs = psutil.net_if_addrs()
+        if_lines = []
+        for iface, stat in stats.items():
+            if iface.startswith("lo") or not stat.isup:
+                continue
+            ip_addr = "no IP"
+            for snic in addrs.get(iface, []):
+                if snic.family.name in ("AF_INET", "AF_INET6") and not snic.address.startswith("127."):
+                    ip_addr = snic.address
+                    break
+            if_lines.append(f"  • {iface}: UP, Speed: {stat.speed}Mbps, IP: {ip_addr}")
+        if if_lines:
+            info_lines.append("Active Interfaces:\n" + "\n".join(if_lines[:4]))
+    except Exception:
+        pass
+
+    # Public IP
     try:
         import urllib.request
         req = urllib.request.Request("https://api.ipify.org", headers={"User-Agent": "Mozilla/5.0"})
@@ -163,12 +187,21 @@ def copy_to_clipboard(parameters: dict = None, **kwargs) -> str:
 
 
 def empty_trash(parameters: dict = None, **kwargs) -> str:
-    """Empties macOS Finder trash."""
-    if _OS == "Darwin":
-        script = 'tell application "Finder" to empty trash'
-        run_applescript(script)
-        return "Trash emptied successfully."
-    return "Trash emptying is supported on macOS."
+    """Empties macOS Finder trash with Level 3 confirmation."""
+    def _do_empty():
+        if _OS == "Darwin":
+            script = 'tell application "Finder" to empty trash'
+            run_applescript(script)
+            return "Trash emptied successfully."
+        return "Trash emptied."
+
+    return execute_with_permission(
+        PermissionLevel.LEVEL_3_DESTRUCTIVE,
+        title="Empty Trash",
+        detail="Permanently delete all items currently in the Trash.",
+        action_fn=_do_empty,
+        key="empty_trash"
+    )
 
 
 def run_shell_command(parameters: dict = None, **kwargs) -> str:
@@ -200,7 +233,7 @@ def run_shell_command(parameters: dict = None, **kwargs) -> str:
 
 
 def mac_power_control(parameters: dict = None, **kwargs) -> str:
-    """Handles lock_screen, sleep_mac, sleep_display, or uptime."""
+    """Handles lock_screen, sleep_mac, sleep_display, uptime, restart, or shutdown."""
     action = (parameters or {}).get("action", "").lower().strip()
     if action == "lock_screen":
         if _OS == "Darwin":
@@ -225,7 +258,138 @@ def mac_power_control(parameters: dict = None, **kwargs) -> str:
             return f"System Uptime: {res.stdout.strip()}"
         except Exception as e:
             return f"Uptime query failed: {e}"
+    elif action == "restart":
+        def _do_restart():
+            if _OS == "Darwin":
+                run_applescript('tell application "System Events" to restart')
+            return "Restarting system."
+        return execute_with_permission(
+            PermissionLevel.LEVEL_3_DESTRUCTIVE,
+            title="Restart Computer",
+            detail="Restart the operating system now.",
+            action_fn=_do_restart,
+            key="restart"
+        )
+    elif action in ("shutdown", "shut_down", "power_off"):
+        def _do_shutdown():
+            if _OS == "Darwin":
+                run_applescript('tell application "System Events" to shut down')
+            return "Shutting down system."
+        return execute_with_permission(
+            PermissionLevel.LEVEL_3_DESTRUCTIVE,
+            title="Shut Down Computer",
+            detail="Shut down the operating system now.",
+            action_fn=_do_shutdown,
+            key="shutdown"
+        )
     return f"Unknown power action: {action}"
+
+
+def get_display_info(parameters: dict = None, **kwargs) -> str:
+    """Get display information: count, resolution, and main display."""
+    if _OS == "Darwin":
+        try:
+            res = subprocess.run(
+                ["system_profiler", "SPDisplaysDataType"],
+                capture_output=True, text=True, timeout=8
+            )
+            out = res.stdout.strip()
+            lines = []
+            for line in out.splitlines():
+                line_s = line.strip()
+                if any(k in line_s for k in ("Chipset Model", "Resolution", "Display Type", "Main Display", "Mirror", "Online")):
+                    lines.append(f"• {line_s}")
+            if lines:
+                return "🖥️ Display Information:\n" + "\n".join(lines)
+        except Exception:
+            pass
+    try:
+        import pyautogui
+        w, h = pyautogui.size()
+        return f"🖥️ Display Resolution: {w}x{h}"
+    except Exception as e:
+        return f"Could not retrieve display information: {e}"
+
+
+def get_disk_usage(parameters: dict = None, **kwargs) -> str:
+    """Get disk usage: total, used, free space, and percent."""
+    path = (parameters or {}).get("path", "/")
+    try:
+        usage = psutil.disk_usage(path)
+        total_gb = usage.total / (1024 ** 3)
+        used_gb = usage.used / (1024 ** 3)
+        free_gb = usage.free / (1024 ** 3)
+        return (
+            f"💾 Disk Usage ({path}):\n"
+            f"• Total: {total_gb:.1f} GB\n"
+            f"• Used: {used_gb:.1f} GB ({usage.percent}%)\n"
+            f"• Free: {free_gb:.1f} GB"
+        )
+    except Exception as e:
+        return f"Could not get disk usage for {path}: {e}"
+
+
+def get_running_processes(parameters: dict = None, **kwargs) -> str:
+    """List running processes or search for a specific process."""
+    params = parameters or {}
+    filter_name = params.get("name", "").lower().strip()
+    try:
+        count = int(params.get("count", 10))
+    except Exception:
+        count = 10
+
+    try:
+        procs = []
+        for p in psutil.process_iter(["pid", "name", "cpu_percent", "memory_percent"]):
+            try:
+                info = p.info
+                p_name = info.get("name") or ""
+                if filter_name and filter_name not in p_name.lower():
+                    continue
+                procs.append(info)
+            except Exception:
+                continue
+
+        if filter_name:
+            if not procs:
+                return f"No running processes found matching '{filter_name}'."
+            lines = [f"Found {len(procs)} process(es) matching '{filter_name}':"]
+            for p in procs[:count]:
+                lines.append(f"• {p['name']} (PID: {p['pid']}, CPU: {p['cpu_percent'] or 0}%, RAM: {p['memory_percent'] or 0:.1f}%)")
+            return "\n".join(lines)
+
+        procs.sort(key=lambda x: (x.get("memory_percent") or 0), reverse=True)
+        lines = ["⚡ Top Running Processes by Memory:"]
+        for p in procs[:count]:
+            lines.append(f"• {p['name']} (PID: {p['pid']}, RAM: {p['memory_percent'] or 0:.1f}%, CPU: {p['cpu_percent'] or 0}%)")
+        return "\n".join(lines)
+    except Exception as e:
+        return f"Could not inspect running processes: {e}"
+
+
+def close_application(parameters: dict = None, **kwargs) -> str:
+    """Gracefully closes or quits an open application."""
+    app_name = (parameters or {}).get("app_name", "").strip()
+    if not app_name:
+        return "Please specify the application name to close."
+
+    if _OS == "Darwin":
+        safe_name = app_name.replace('"', '\\"')
+        script = f'tell application "{safe_name}" to quit'
+        res = run_applescript(script)
+        if "error" not in res.lower():
+            return f"Closed {app_name}."
+        subprocess.run(["killall", app_name], capture_output=True)
+        return f"Closed {app_name}."
+    else:
+        for p in psutil.process_iter(["pid", "name"]):
+            try:
+                if app_name.lower() in (p.info.get("name") or "").lower():
+                    p.terminate()
+                    return f"Closed process {p.info.get('name')} (PID {p.info.get('pid')})."
+            except Exception:
+                pass
+        return f"No active process matching '{app_name}' was found to close."
 
 
 # ── Multi-tool declarations (auto-discovered by core/action_loader.py) ───────
@@ -242,7 +406,7 @@ TOOLS = [
     },
     {
         "name": "get_network_info",
-        "description": "Gets current network connection details including Wi-Fi SSID, local IP address, and public IP.",
+        "description": "Gets current network connection details including Wi-Fi SSID, local IP address, active interfaces, and public IP.",
         "parameters": {
             "type": "OBJECT",
             "properties": {},
@@ -302,7 +466,7 @@ TOOLS = [
     },
     {
         "name": "empty_trash",
-        "description": "Empties the macOS trash bin hands-free.",
+        "description": "Empties the macOS trash bin (requires confirmation).",
         "parameters": {
             "type": "OBJECT",
             "properties": {},
@@ -327,17 +491,76 @@ TOOLS = [
     },
     {
         "name": "mac_power_control",
-        "description": "Controls system power state: lock screen, sleep display, sleep mac, or get system uptime.",
+        "description": "Controls system power state: lock_screen, sleep_display, sleep_mac, uptime, restart, or shutdown.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "action": {
                     "type": "STRING",
-                    "description": "One of: lock_screen | sleep_display | sleep_mac | uptime"
+                    "description": "One of: lock_screen | sleep_display | sleep_mac | uptime | restart | shutdown"
                 }
             },
             "required": ["action"]
         },
         "handler": mac_power_control,
-    }
+    },
+    {
+        "name": "get_display_info",
+        "description": "Retrieves display and monitor details: resolution, display count, and screen settings.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {},
+            "required": []
+        },
+        "handler": get_display_info,
+    },
+    {
+        "name": "get_disk_usage",
+        "description": "Checks disk space usage: total, used, free space, and usage percentage.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "path": {
+                    "type": "STRING",
+                    "description": "Disk mount path (default: '/')."
+                }
+            },
+            "required": []
+        },
+        "handler": get_disk_usage,
+    },
+    {
+        "name": "get_running_processes",
+        "description": "Lists top running processes by CPU/memory or searches for a specific process name.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "name": {
+                    "type": "STRING",
+                    "description": "Optional process name filter (e.g. 'python', 'chrome')."
+                },
+                "count": {
+                    "type": "INTEGER",
+                    "description": "Number of processes to return (default: 10)."
+                }
+            },
+            "required": []
+        },
+        "handler": get_running_processes,
+    },
+    {
+        "name": "close_application",
+        "description": "Closes, quits, or terminates a running application by name.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "app_name": {
+                    "type": "STRING",
+                    "description": "Exact name of application to close (e.g. 'Spotify', 'Visual Studio Code', 'Chrome')."
+                }
+            },
+            "required": ["app_name"]
+        },
+        "handler": close_application,
+    },
 ]

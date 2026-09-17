@@ -8,6 +8,8 @@ import platform
 import subprocess
 from datetime import datetime, timedelta
 
+from core.permissions import PermissionLevel, execute_with_permission
+
 _OS = platform.system()
 
 
@@ -215,6 +217,208 @@ def complete_reminder(parameters: dict = None, **kwargs) -> str:
     return run_applescript(script)
 
 
+def search_events(parameters: dict = None, **kwargs) -> str:
+    """Searches events in Apple Calendar by title or keyword."""
+    if _OS != "Darwin":
+        return "Calendar search is only available on macOS."
+
+    query = (parameters or {}).get("query", "").strip()
+    if not query:
+        return "Please specify an event title or keyword to search."
+
+    safe_q = query.replace('"', '\\"')
+    script = f'''
+    tell application "Calendar"
+        set matched to {{}}
+        repeat with cal in calendars
+            set found to (every event of cal whose summary contains "{safe_q}")
+            repeat with evt in found
+                set end of matched to (summary of evt) & " on " & (start date of evt as text)
+            end repeat
+        end repeat
+        if length of matched is 0 then return "No events found matching '{safe_q}'."
+        set AppleScript's text item delimiters to linefeed
+        return matched as text
+    end tell
+    '''
+    res = run_applescript(script)
+    return f"📅 Events matching '{query}':\n{res}"
+
+
+def update_event(parameters: dict = None, **kwargs) -> str:
+    """Updates an existing event in Apple Calendar."""
+    if _OS != "Darwin":
+        return "Calendar is only available on macOS."
+
+    params = parameters or {}
+    title = params.get("title", "").strip()
+    new_title = params.get("new_title", "").strip()
+    new_date = params.get("new_date", "").strip()
+
+    if not title:
+        return "Please specify the title of the event to update."
+
+    safe_title = title.replace('"', '\\"')
+    clauses = []
+    if new_title:
+        clauses.append(f'set summary of evt to "{new_title.replace(chr(34), chr(92)+chr(34))}"')
+    if new_date:
+        clauses.append(f'set start date of evt to date "{new_date}"')
+
+    if not clauses:
+        return "Please specify new_title or new_date to update."
+
+    updates_str = "\n".join(clauses)
+    script = f'''
+    tell application "Calendar"
+        repeat with cal in calendars
+            set found to (every event of cal whose summary contains "{safe_title}")
+            if (count of found) > 0 then
+                set evt to first item of found
+                {updates_str}
+                return "Event '{title}' updated successfully."
+            end if
+        end repeat
+        return "No matching event found for '{safe_title}'."
+    end tell
+    '''
+    return run_applescript(script)
+
+
+def delete_event(parameters: dict = None, **kwargs) -> str:
+    """Deletes an event from Apple Calendar with Level 3 confirmation."""
+    if _OS != "Darwin":
+        return "Calendar is only available on macOS."
+
+    title = (parameters or {}).get("title", "").strip()
+    if not title:
+        return "Please specify the event title to delete."
+
+    safe_title = title.replace('"', '\\"')
+
+    def _do_delete():
+        script = f'''
+        tell application "Calendar"
+            repeat with cal in calendars
+                set found to (every event of cal whose summary contains "{safe_title}")
+                if (count of found) > 0 then
+                    delete (first item of found)
+                    return "Event '{title}' deleted."
+                end if
+            end repeat
+            return "No matching event found to delete."
+        end tell
+        '''
+        return run_applescript(script)
+
+    return execute_with_permission(
+        PermissionLevel.LEVEL_3_DESTRUCTIVE,
+        title=f"Delete Calendar Event: '{title}'",
+        detail=f"Permanently delete calendar event '{title}'.",
+        action_fn=_do_delete,
+        key=f"delete_event_{title}"
+    )
+
+
+def search_reminders(parameters: dict = None, **kwargs) -> str:
+    """Searches reminders in Apple Reminders by keyword."""
+    if _OS != "Darwin":
+        return "Apple Reminders is only available on macOS."
+
+    query = (parameters or {}).get("query", "").strip()
+    if not query:
+        return "Please specify a query keyword to search reminders."
+
+    safe_q = query.replace('"', '\\"')
+    script = f'''
+    tell application "Reminders"
+        set reminderList to {{}}
+        set matched to (every reminder whose name contains "{safe_q}")
+        repeat with r in matched
+            set statusStr to "pending"
+            if completed of r is true then set statusStr to "completed"
+            set end of reminderList to (name of r) & " [" & statusStr & "]"
+        end repeat
+        if length of reminderList is 0 then return "No reminders found matching '{safe_q}'."
+        set AppleScript's text item delimiters to linefeed
+        return reminderList as text
+    end tell
+    '''
+    res = run_applescript(script)
+    return f"⏰ Reminders matching '{query}':\n{res}"
+
+
+def update_reminder(parameters: dict = None, **kwargs) -> str:
+    """Updates an existing reminder in Apple Reminders."""
+    if _OS != "Darwin":
+        return "Apple Reminders is only available on macOS."
+
+    params = parameters or {}
+    name = params.get("name", "").strip()
+    new_name = params.get("new_name", "").strip()
+    new_due_date = params.get("new_due_date", "").strip()
+
+    if not name:
+        return "Please specify the reminder name to update."
+
+    safe_name = name.replace('"', '\\"')
+    clauses = []
+    if new_name:
+        clauses.append(f'set name of r to "{new_name.replace(chr(34), chr(92)+chr(34))}"')
+    if new_due_date:
+        clauses.append(f'set due date of r to date "{new_due_date}"')
+
+    if not clauses:
+        return "Please specify new_name or new_due_date."
+
+    updates_str = "\n".join(clauses)
+    script = f'''
+    tell application "Reminders"
+        set matched to (every reminder whose name contains "{safe_name}")
+        if (count of matched) > 0 then
+            set r to first item of matched
+            {updates_str}
+            return "Reminder '{name}' updated successfully."
+        end if
+        return "No matching reminder found for '{safe_name}'."
+    end tell
+    '''
+    return run_applescript(script)
+
+
+def delete_reminder(parameters: dict = None, **kwargs) -> str:
+    """Deletes a reminder from Apple Reminders with Level 3 confirmation."""
+    if _OS != "Darwin":
+        return "Apple Reminders is only available on macOS."
+
+    name = (parameters or {}).get("name", "").strip()
+    if not name:
+        return "Please specify the reminder name to delete."
+
+    safe_name = name.replace('"', '\\"')
+
+    def _do_delete():
+        script = f'''
+        tell application "Reminders"
+            set matched to (every reminder whose name contains "{safe_name}")
+            if (count of matched) > 0 then
+                delete (first item of matched)
+                return "Reminder '{name}' deleted."
+            end if
+            return "No matching reminder found to delete."
+        end tell
+        '''
+        return run_applescript(script)
+
+    return execute_with_permission(
+        PermissionLevel.LEVEL_3_DESTRUCTIVE,
+        title=f"Delete Reminder: '{name}'",
+        detail=f"Permanently delete reminder '{name}'.",
+        action_fn=_do_delete,
+        key=f"delete_reminder_{name}"
+    )
+
+
 # ── Multi-tool declarations (auto-discovered by core/action_loader.py) ───────
 TOOLS = [
     {
@@ -266,6 +470,59 @@ TOOLS = [
         "handler": add_calendar_event,
     },
     {
+        "name": "search_events",
+        "description": "Searches for events in Apple Calendar by title or keyword.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "query": {
+                    "type": "STRING",
+                    "description": "Search keyword or event title."
+                }
+            },
+            "required": ["query"]
+        },
+        "handler": search_events,
+    },
+    {
+        "name": "update_event",
+        "description": "Updates an existing event title or start date in Apple Calendar.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "title": {
+                    "type": "STRING",
+                    "description": "Current title of the event to find."
+                },
+                "new_title": {
+                    "type": "STRING",
+                    "description": "New title for the event."
+                },
+                "new_date": {
+                    "type": "STRING",
+                    "description": "New date/time string."
+                }
+            },
+            "required": ["title"]
+        },
+        "handler": update_event,
+    },
+    {
+        "name": "delete_event",
+        "description": "Deletes a calendar event by title (requires Level 3 confirmation).",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "title": {
+                    "type": "STRING",
+                    "description": "Title of the calendar event to delete."
+                }
+            },
+            "required": ["title"]
+        },
+        "handler": delete_event,
+    },
+    {
         "name": "get_reminders",
         "description": "Fetches all active, incomplete reminders from Apple Reminders.",
         "parameters": {
@@ -308,5 +565,58 @@ TOOLS = [
             "required": ["name"]
         },
         "handler": complete_reminder,
+    },
+    {
+        "name": "search_reminders",
+        "description": "Searches reminders in Apple Reminders by keyword.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "query": {
+                    "type": "STRING",
+                    "description": "Keyword to search in reminders."
+                }
+            },
+            "required": ["query"]
+        },
+        "handler": search_reminders,
+    },
+    {
+        "name": "update_reminder",
+        "description": "Updates a reminder's title or due date in Apple Reminders.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "name": {
+                    "type": "STRING",
+                    "description": "Name of the reminder to update."
+                },
+                "new_name": {
+                    "type": "STRING",
+                    "description": "New title for the reminder."
+                },
+                "new_due_date": {
+                    "type": "STRING",
+                    "description": "New due date string."
+                }
+            },
+            "required": ["name"]
+        },
+        "handler": update_reminder,
+    },
+    {
+        "name": "delete_reminder",
+        "description": "Deletes a reminder in Apple Reminders by name (requires Level 3 confirmation).",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "name": {
+                    "type": "STRING",
+                    "description": "Name of the reminder to delete."
+                }
+            },
+            "required": ["name"]
+        },
+        "handler": delete_reminder,
     }
 ]
