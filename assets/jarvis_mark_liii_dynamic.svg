@@ -147,17 +147,17 @@
   <!-- ============================================== -->
   <!-- Top Left Pill: System Core Status -->
   <g transform="translate(28, 20)">
-    <rect x="0" y="0" width="220" height="26" rx="13" fill="url(#hud-pill)" stroke="#00f2fe" stroke-width="1" />
+    <rect x="0" y="0" width="268" height="26" rx="13" fill="url(#hud-pill)" stroke="#00f2fe" stroke-width="1" />
     <circle cx="15" cy="13" r="4.5" fill="#34d399" class="status-blink" />
-    <text x="28" y="17" fill="#38bdf8" font-size="9.5" class="font-hud" font-weight="700" letter-spacing="1px">
+    <text x="28" y="17" fill="#38bdf8" font-size="8.8" class="font-hud" font-weight="700" letter-spacing="0.5px">
       CORE 8.4 // ONLINE (<tspan fill="#34d399">NOMINAL 100%</tspan>)
     </text>
   </g>
 
   <!-- Top Right Pill: OS & Architecture -->
-  <g transform="translate(740, 20)">
-    <rect x="0" y="0" width="232" height="26" rx="13" fill="url(#hud-pill)" stroke="#00f2fe" stroke-width="1" opacity="0.85" />
-    <text x="116" y="17" fill="#94a3b8" font-size="9.5" class="font-hud" text-anchor="middle" letter-spacing="1px">
+  <g transform="translate(710, 20)">
+    <rect x="0" y="0" width="262" height="26" rx="13" fill="url(#hud-pill)" stroke="#00f2fe" stroke-width="1" opacity="0.85" />
+    <text x="131" y="17" fill="#94a3b8" font-size="8.8" class="font-hud" text-anchor="middle" letter-spacing="0.5px">
       DARWIN 24.1.0 • macOS SILICON/INTEL
     </text>
   </g>
