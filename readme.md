@@ -15,7 +15,7 @@
 [![Router](https://img.shields.io/badge/FAST_ROUTER-%3C1.8MS_LOCAL-FFE600?style=for-the-badge&logo=lightning&logoColor=purple)](#-central-deterministic-command-router)
 [![AI Core](https://img.shields.io/badge/AI_CORE-GEMINI_LIVE_2.0-7928CA?style=for-the-badge&logo=google&logoColor=white)](https://ai.google.dev/)
 [![Platform](https://img.shields.io/badge/PLATFORM-macOS_SILICON_%26_INTEL-000000?style=for-the-badge&logo=apple&logoColor=white)](https://apple.com)
-[![Tools](https://img.shields.io/badge/NATIVE_TOOLS-97_DISCOVERED-34D399?style=for-the-badge&logo=target&logoColor=black)](#-master-97-tool-inventory)
+[![Tools](https://img.shields.io/badge/NATIVE_TOOLS-97_DISCOVERED-34D399?style=for-the-badge&logo=target&logoColor=violet)](#-master-97-tool-inventory)
 [![License](https://img.shields.io/badge/LICENSE-MIT-38BDF8?style=for-the-badge)](#-license)
 
 <br/>
