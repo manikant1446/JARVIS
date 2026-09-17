@@ -1,3 +1,4 @@
+# ⚡ JARVIS MARK LIII — Autonomous Desktop Intelligence
 <div align="center">
 
 <img src="assets/jarvis_mark_liii_dynamic.svg" alt="JARVIS MARK LIII 3D Dynamic Architecture & Telemetry Banner" width="100%" style="border-radius: 12px; box-shadow: 0 20px 60px rgba(0, 242, 254, 0.35); border: 1px solid rgba(0, 242, 254, 0.5);" />
@@ -5,7 +6,6 @@
 <br/>
 <br/>
 
-# ⚡ JARVIS MARK LIII — Autonomous Desktop Intelligence
 ### Next-Generation Multimodal AI Operating System Powered by Google Gemini Live 2.0
 
 <div align="center">
