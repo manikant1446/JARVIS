@@ -1,59 +1,67 @@
-# ── Core: UI, audio, Gemini Live ──────────────────────────────────────────────
-PyQt6
-sounddevice
-numpy
+# ── Core: UI, Audio, & Gemini Live 2.0 ──────────────────────────────────────────
+PyQt6>=6.6.0
+sounddevice>=0.4.6
+numpy>=1.26.0
 google-genai>=2.8.0
+websockets>=13.0
+python-dotenv>=1.0.0
 
-# ── Web search & browser control ──────────────────────────────────────────────
-requests
-beautifulsoup4
-duckduckgo-search
-playwright
+# ── Web Search & Autonomous Browser Control ───────────────────────────────────
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+duckduckgo-search>=6.0.0
+playwright>=1.40.0
 
-# ── Automation / input control ────────────────────────────────────────────────
-pyautogui
-pyperclip
-pygetwindow
+# ── Automation, Keyboard & Cursor Control ─────────────────────────────────────
+pyautogui>=0.9.54
+pyperclip>=1.8.2
+pygetwindow>=0.0.9; sys_platform != "darwin"
 
-# ── Vision & media ────────────────────────────────────────────────────────────
-pillow
-opencv-python
-mss
+# ── Vision, Screen Capture & Media ────────────────────────────────────────────
+pillow>=10.0.0
+opencv-python>=4.8.0
+mss>=9.0.0
 
-# ── System, files & documents ─────────────────────────────────────────────────
-psutil
-send2trash
-youtube-transcript-api
-python-pptx
-openpyxl
+# ── System, Security, Files & Documents ───────────────────────────────────────
+psutil>=5.9.0
+send2trash>=1.8.0
+pypdf>=4.0.0
+PyPDF2>=3.0.0
+python-docx>=1.1.0
+python-pptx>=0.6.20
+openpyxl>=3.1.0
+pdfplumber>=0.11.0
+pdf2image>=1.17.0
+youtube-transcript-api>=0.6.0
 
-# ── Remote dashboard (control from your phone) ────────────────────────────────
-fastapi
-uvicorn[standard]
-cryptography
-python-multipart
-qrcode[pil]
+# ── Remote Dashboard (Local Web & Mobile QR Access) ───────────────────────────
+fastapi>=0.110.0
+uvicorn[standard]>=0.28.0
+cryptography>=42.0.0
+python-multipart>=0.0.9
+qrcode[pil]>=7.4.2
 
-# ── Plugin extras: Gmail / Google Calendar (OAuth) ────────────────────────────
-google-api-python-client
-google-auth-oauthlib
+# ── Cloud & OAuth Integrations (Google Mail & Calendar) ───────────────────────
+google-api-python-client>=2.100.0
+google-auth-oauthlib>=1.2.0
+google-auth-httplib2>=0.2.0
 
-# ── Plugin extras: Tuya / Smart Life smart light (home_assistant) ─────────────
-tinytuya
+# ── Smart Home & Device Automation ────────────────────────────────────────────
+tinytuya>=1.14.0
 
-# ── Windows-only (pip skips these automatically on macOS / Linux) ─────────────
-comtypes;   sys_platform == "win32"
-pycaw;      sys_platform == "win32"
+# ── macOS Native System Bindings ──────────────────────────────────────────────
+pyobjc-core>=10.0; sys_platform == "darwin"
+pyobjc-framework-Cocoa>=10.0; sys_platform == "darwin"
+pyobjc-framework-Quartz>=10.0; sys_platform == "darwin"
+
+# ── Windows-Only Bindings (Automatically Skipped on macOS / Linux) ────────────
+comtypes; sys_platform == "win32"
+pycaw; sys_platform == "win32"
 win10toast; sys_platform == "win32"
-pywinauto;  sys_platform == "win32"
-pywin32;    sys_platform == "win32"
-wmi;        sys_platform == "win32"
+pywinauto; sys_platform == "win32"
+pywin32; sys_platform == "win32"
+wmi; sys_platform == "win32"
 
-# ── Optional: local wake word ("Hey Jarvis") ──────────────────────────────────
-# Deliberately NOT installed by default — it's opt-in. Enable it (and download
-# the tiny model) with one click from ⚙ → WAKE WORD in the app, or install it
-# yourself with:  pip install openwakeword
-#
-# macOS / Linux OS actions (volume, brightness, reminders) shell out to native
-# tools (pactl / brightnessctl / osascript / systemd), so no extra Python
-# packages are needed there — nothing Windows-specific is ever pulled in.
+# ── Optional: Local Wake Word ("Hey Jarvis") ──────────────────────────────────
+# Opt-in local wake word detection:
+# pip install openwakeword
