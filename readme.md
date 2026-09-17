@@ -8,7 +8,7 @@
 # ⚡ JARVIS MARK LIII — Autonomous Desktop Intelligence
 ### Next-Generation Multimodal AI Operating System Powered by Google Gemini Live 2.0
 
-<img src="assets/jarvis_mark_liii_dynamic.svg" width="100%" alt="JARVIS MARK LIII 3D Dynamic Architecture & Telemetry Banner" style="border-radius: 12px; box-shadow: 0 15px 45px rgba(0, 242, 254, 0.25); border: 1px solid rgba(0, 242, 254, 0.35);" />
+<img src="assets/jarvis_3d_reactor.svg" width="100%" alt="JARVIS MARK LIII 3D Holographic Arc Reactor Core with rotating magnetic flux coils, pulse plasma core, and telemetry readouts." style="border-radius: 12px; box-shadow: 0 15px 45px rgba(0, 242, 254, 0.2); border: 1px solid rgba(0, 242, 254, 0.3);" />
 
 </div>
 
@@ -44,8 +44,8 @@
   <tr>
     <td align="right"><b>💡 Architecture</b></td>
     <td align="center"><a href="#-the-promise--6-architectural-pillars">💥 The 6 Pillars</a></td>
+    <td align="center"><a href="#-why-mark-liii--10-daily-pains-vs-fixes">🤔 Why MARK LIII?</a></td>
     <td align="center"><a href="#-3d-isometric-system-architecture">🔮 3D Isometric Topology</a></td>
-    <td align="center"><a href="#-3d-holographic-arc-reactor-core">🌀 3D Arc Reactor</a></td>
   </tr>
   <tr>
     <td align="right"><b>⚙️ Capabilities</b></td>
@@ -232,16 +232,6 @@ cd "Mark LIII"
 | **Global Emergency Killswitch**| Global Thread Hook (`computer_control`) | `< 1 ms` Instant Stop | Priority 0 Master | 🟢 **ONLINE** | `"Mark stop" / "Ruk jao"` |
 
 </div>
-
----
-
-## 🌀 3D Holographic Arc Reactor Core
-
-<div align="center">
-  <img src="assets/jarvis_3d_reactor.svg" alt="JARVIS MARK LIII 3D Arc Reactor Core" width="100%" style="border-radius: 12px; box-shadow: 0 15px 45px rgba(0, 242, 254, 0.2); border: 1px solid rgba(0, 242, 254, 0.3);" />
-</div>
-
-<br/>
 
 ---
 
