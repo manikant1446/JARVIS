@@ -14,8 +14,6 @@ if _platform.system() == "Windows":
 
     _subprocess.Popen = _Popen
 
-# ─────────────────────────────────────────────────────────────────────────────
-
 # ── Console encoding ─────────────────────────────────────────────────────────
 # Status lines in this app carry emoji and arrows ("📤 file_controller → Moved:
 # a.txt → Documents/"). On a non-UTF-8 console — cp1254 on a Turkish Windows,
@@ -23,7 +21,7 @@ if _platform.system() == "Windows":
 # raises UnicodeEncodeError, and because the print sits after the tool's own
 # try/except, the exception escapes into the receive loop and takes the session
 # down. The assistant dies on a log line.
-#
+
 # Reconfiguring costs nothing and makes the app start the same way in every
 # locale. `errors="replace"` is the belt and braces — a console that genuinely
 # cannot render a glyph shows a box instead of killing the process.
