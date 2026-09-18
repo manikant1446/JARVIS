@@ -106,34 +106,62 @@ def _cv2_backend() -> int:
     os_name = _get_os()
     if os_name == "windows":
         return cv2.CAP_DSHOW
-    if os_name == "mac":
-        return cv2.CAP_AVFOUNDATION
+    # On macOS and Linux, cv2.CAP_ANY lets OpenCV choose the native backend (AVFoundation/V4L2)
+    # without device index binding restrictions that can occur with explicit CAP_AVFOUNDATION.
     return cv2.CAP_ANY
 
 
-def _probe_camera(index: int, backend: int, warmup: int = 5) -> bool:
+def _open_camera(index: int) -> cv2.VideoCapture | None:
+    """Attempt to open a camera by index using preferred backend, falling back to CAP_ANY."""
+    if not _CV2:
+        return None
+    backend = _cv2_backend()
+    if backend != cv2.CAP_ANY:
+        try:
+            cap = cv2.VideoCapture(index, backend)
+            if cap.isOpened():
+                return cap
+            cap.release()
+        except Exception:
+            pass
+    # Fallback to CAP_ANY
+    try:
+        cap = cv2.VideoCapture(index, cv2.CAP_ANY)
+        if cap.isOpened():
+            return cap
+        cap.release()
+    except Exception:
+        pass
+    # Fallback to default backend
+    try:
+        cap = cv2.VideoCapture(index)
+        if cap.isOpened():
+            return cap
+        cap.release()
+    except Exception:
+        pass
+    return None
 
+
+def _probe_camera(index: int, warmup: int = 5) -> bool:
     if not _CV2:
         return False
-    cap = cv2.VideoCapture(index, backend)
-    if not cap.isOpened():
-        cap.release()
+    cap = _open_camera(index)
+    if cap is None:
         return False
+    ret, frame = False, None
     for _ in range(warmup):
-        cap.read()
-    ret, frame = cap.read()
+        ret, frame = cap.read()
     cap.release()
-    if not ret or frame is None:
+    if not ret or frame is None or getattr(frame, "size", 0) == 0:
         return False
-    return bool(np.mean(frame) > 8)
+    return True
 
 
 def _detect_camera_index() -> int:
-
-    backend = _cv2_backend()
     print("[Vision] 🔍 Auto-detecting camera...")
     for idx in range(6):
-        if _probe_camera(idx, backend):
+        if _probe_camera(idx):
             print(f"[Vision] ✅ Camera found at index {idx}")
             _save_config_key("camera_index", idx)
             return idx
@@ -155,21 +183,49 @@ def _capture_camera() -> tuple[bytes, str]:
     if not _CV2:
         raise RuntimeError("OpenCV (cv2) is not installed. Run: pip install opencv-python")
 
-    index   = _get_camera_index()
-    backend = _cv2_backend()
-    cap     = cv2.VideoCapture(index, backend)
+    import time as _t_mod
 
-    if not cap.isOpened():
-        raise RuntimeError(f"Camera index {index} could not be opened.")
+    index = _get_camera_index()
+    cap = _open_camera(index)
 
-    for _ in range(10):
-        cap.read()
+    # If opening failed at configured index, attempt quick fallback search across indices 0..2
+    if cap is None:
+        for alt_idx in (0, 1, 2):
+            if alt_idx != index:
+                cap = _open_camera(alt_idx)
+                if cap is not None:
+                    print(f"[Vision] 📷 Switched camera index from {index} to working index {alt_idx}")
+                    _save_config_key("camera_index", alt_idx)
+                    index = alt_idx
+                    break
 
-    ret, frame = cap.read()
-    cap.release()
+    if cap is None:
+        os_name = _get_os()
+        perm_hint = ""
+        if os_name == "mac":
+            perm_hint = (
+                " On macOS, ensure Terminal/IDE has camera access in System Settings > Privacy & Security > Camera, "
+                "or check if another app (FaceTime, Zoom, browser) is using the webcam."
+            )
+        raise RuntimeError(f"Camera index {index} could not be opened.{perm_hint}")
 
-    if not ret or frame is None:
-        raise RuntimeError("Camera returned no frame.")
+    frame = None
+    ret = False
+    try:
+        # Read warmup frames (up to 12) with a tiny pause to allow auto-exposure/white-balance to adjust
+        for attempt in range(12):
+            r, f = cap.read()
+            if r and f is not None and getattr(f, "size", 0) > 0:
+                ret = True
+                frame = f
+                if attempt >= 4:
+                    break
+            _t_mod.sleep(0.025)
+    finally:
+        cap.release()
+
+    if not ret or frame is None or getattr(frame, "size", 0) == 0:
+        raise RuntimeError("Camera opened, but returned no valid frame (device busy or covered).")
 
     if _PIL:
         rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -181,3 +237,4 @@ def _capture_camera() -> tuple[bytes, str]:
 
     _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, _JPEG_Q])
     return buf.tobytes(), "image/jpeg"
+

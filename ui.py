@@ -2944,6 +2944,8 @@ class MainWindow(QMainWindow):
         self._clipboard_sig.connect(self._show_clipboard_panel)
         self._wake_dl_sig.connect(self._on_wake_install_done)
         self._cam_stop = threading.Event()
+        self._cam_thread: threading.Thread | None = None
+        self._last_cam_frame: bytes | None = None
 
         # Camera preview overlay (child of central widget, positioned in resizeEvent)
         self._cam_preview = _CameraPreview(self.centralWidget())
@@ -2997,11 +2999,17 @@ class MainWindow(QMainWindow):
                               Qt.TransformationMode.SmoothTransformation)
                 )
 
+    def get_latest_camera_frame(self) -> bytes | None:
+        """Return the most recent JPEG frame from the active camera stream, if running."""
+        return getattr(self, "_last_cam_frame", None)
+
     def start_camera_stream(self) -> None:
+        if self._cam_thread is not None and self._cam_thread.is_alive():
+            return
         self._cam_stop.clear()
         self._cam_stream_sig.emit(True)
-        t = threading.Thread(target=self._cam_loop, daemon=True, name="cam-stream")
-        t.start()
+        self._cam_thread = threading.Thread(target=self._cam_loop, daemon=True, name="cam-stream")
+        self._cam_thread.start()
 
     def _cam_loop(self) -> None:
         try:
@@ -3020,8 +3028,15 @@ class MainWindow(QMainWindow):
                 backend = 0
             cap = cv2.VideoCapture(cam_idx, backend)
             if not cap.isOpened():
-                cap = cv2.VideoCapture(0)
+                cap = cv2.VideoCapture(cam_idx)
             if not cap.isOpened():
+                for alt_idx in (0, 1, 2):
+                    if alt_idx != cam_idx:
+                        cap = cv2.VideoCapture(alt_idx, cv2.CAP_ANY)
+                        if cap.isOpened():
+                            break
+            if not cap.isOpened():
+                print(f"[Camera] ⚠️ Could not open camera at index {cam_idx} or fallbacks.")
                 return
             # warm-up frames
             for _ in range(5):
@@ -3030,15 +3045,19 @@ class MainWindow(QMainWindow):
                 ret, frame = cap.read()
                 if ret and frame is not None:
                     _, buf = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 65])
-                    self._cam_frame_sig.emit(buf.tobytes())
+                    raw = buf.tobytes()
+                    self._last_cam_frame = raw
+                    self._cam_frame_sig.emit(raw)
             cap.release()
         except Exception as e:
             print(f"[Camera] Stream error: {e}")
         finally:
+            self._last_cam_frame = None
             self._cam_stream_sig.emit(False)
 
     def stop_camera_stream(self) -> None:
         self._cam_stop.set()
+        self._last_cam_frame = None
 
     # ------------------------------------------------------------------
     # Icon generation — arc-reactor style, rendered with Pillow
@@ -4735,6 +4754,10 @@ class JarvisUI:
     def stop_camera_stream(self) -> None:
         """Thread-safe: stop the live camera feed."""
         self._win.stop_camera_stream()
+
+    def get_latest_camera_frame(self) -> bytes | None:
+        """Thread-safe: get latest JPEG frame from active camera stream if running."""
+        return self._win.get_latest_camera_frame()
 
     @property
     def assistant_name(self) -> str:

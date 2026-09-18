@@ -10,7 +10,7 @@ if _platform.system() == "Windows":
         def __init__(self, args, **kw):
             kw["creationflags"] = kw.get("creationflags", 0) | _subprocess.CREATE_NO_WINDOW
             kw.pop("startupinfo", None)   # drop any stale/shared STARTUPINFO
-            super().__init__(args, **                       kw)
+            super().__init__(args, **kw)
 
     _subprocess.Popen = _Popen
 
@@ -358,6 +358,7 @@ class JarvisLive:
         self._loop                     = None
         self._is_speaking         = False
         self._speaking_lock       = threading.Lock()
+        self._last_speech_play_time = 0.0   # monotonic timestamp when audio was last written to speaker
         self._phone_active        = False   # True while phone mic is streaming; pauses PC mic
         self._pending_vision       = None    # (img_bytes, mime_type, question, angle) to inject after tool response
         self._vision_cam_active    = False   # True if camera was opened for vision → auto-close after response
@@ -396,7 +397,7 @@ class JarvisLive:
         self._last_user_speech = time.monotonic()  # updated on every user utterance
         self._session_log: list[str] = []          # conversation turns for end-of-session summary
 
-        self._enhanced_live = True  # proactive audio; auto-disabled if the server rejects it
+        self._enhanced_live = False  # Disabled: proactive audio causes model to self-talk/hallucinate from echo
 
         _base_dir = Path(__file__).resolve().parent
         _inline_names = {t["name"] for t in TOOL_DECLARATIONS}
@@ -640,10 +641,23 @@ class JarvisLive:
             self._loop
         )
 
+    def _drain_out_queue(self):
+        """Purge pending microphone frames so stale audio or speaker echo is never sent."""
+        q = self.out_queue
+        if q is not None:
+            while not q.empty():
+                try:
+                    q.get_nowait()
+                except Exception:
+                    break
+
     def set_speaking(self, value: bool):
         with self._speaking_lock:
             self._is_speaking = value
+            if value:
+                self._last_speech_play_time = time.monotonic()
         if value:
+            self._drain_out_queue()
             self.ui.set_state("SPEAKING")
         elif not self.ui.muted:
             self.ui.set_state("LISTENING")
@@ -662,7 +676,9 @@ class JarvisLive:
                     break
             if drained:
                 print(f"[JARVIS] ✋ Interrupted — {drained} audio chunks discarded")
+        self._drain_out_queue()
         self.set_speaking(False)
+        self._last_speech_play_time = 0.0
         if self._turn_done_event:
             self._turn_done_event.clear()
         self.ui.write_log("SYS: Interrupted — listening...")
@@ -812,6 +828,14 @@ class JarvisLive:
                 import time as _t_mod
                 _now = _t_mod.monotonic()
                 _cooldown = 4.0  # seconds — covers echo window after speaking ends
+                _busy_timeout = 15.0  # safety watchdog against dropped turns
+
+                if self._vision_busy and (_now - self._vision_last_time) > _busy_timeout:
+                    print(f"[Vision] ⚠️ Busy flag timed out after {_busy_timeout}s — auto-clearing")
+                    self._vision_busy = False
+                    self._vision_cam_active = False
+                    self._vision_close_pending = False
+
                 if self._vision_busy or (_now - self._vision_last_time) < _cooldown:
                     _wait = max(0, _cooldown - (_now - self._vision_last_time))
                     print(f"[Vision] ⏳ Cooldown active ({_wait:.1f}s remaining) — ignoring duplicate call")
@@ -819,28 +843,44 @@ class JarvisLive:
                 else:
                     self._vision_busy      = True
                     self._vision_last_time = _now
-                    angle     = args.get("angle", "screen").lower()
-                    user_text = args.get("text", "What do you see?")
-                    if angle == "camera":
-                        img_b, mime_t = await loop.run_in_executor(None, _capture_camera)
-                        self.ui.start_camera_stream()
-                        self._vision_cam_active = True
-                        print(f"[Vision] 📷 Camera: {len(img_b):,} bytes")
-                        _stall = "camera"
-                    else:
-                        img_b, mime_t = await loop.run_in_executor(None, _capture_screen)
-                        print(f"[Vision] 🖥️  Screen: {len(img_b):,} bytes")
-                        _stall = "screen"
-                    self._pending_vision = (img_b, mime_t, user_text, angle)
-                    result = (
-                        f"[VISION_ACTIVE] {_stall.capitalize()} captured. "
-                        f"Immediately say ONE short natural sentence in the user's own language, "
-                        f"telling them you are looking at their {_stall} right now. "
-                        f"Do NOT describe or guess content — the actual image arrives in the NEXT message."
-                    )
+                    try:
+                        angle     = args.get("angle", "screen").lower()
+                        user_text = args.get("text", "What do you see?")
+                        if angle == "camera":
+                            # If UI stream is actively running and has a recent frame, use it directly
+                            latest_frame = None
+                            if hasattr(self.ui, "get_latest_camera_frame"):
+                                latest_frame = self.ui.get_latest_camera_frame()
+                            if latest_frame:
+                                img_b, mime_t = latest_frame, "image/jpeg"
+                                print(f"[Vision] 📷 Reusing active camera stream frame: {len(img_b):,} bytes")
+                            else:
+                                img_b, mime_t = await loop.run_in_executor(None, _capture_camera)
+                                self.ui.start_camera_stream()
+                                print(f"[Vision] 📷 Fresh camera capture: {len(img_b):,} bytes")
+                            self._vision_cam_active = True
+                            _stall = "camera"
+                        else:
+                            img_b, mime_t = await loop.run_in_executor(None, _capture_screen)
+                            print(f"[Vision] 🖥️  Screen: {len(img_b):,} bytes")
+                            _stall = "screen"
+                        self._pending_vision = (img_b, mime_t, user_text, angle)
+                        result = (
+                            f"[VISION_ACTIVE] {_stall.capitalize()} captured. "
+                            f"Immediately say ONE short natural sentence in the user's own language, "
+                            f"telling them you are looking at their {_stall} right now. "
+                            f"Do NOT describe or guess content — the actual image arrives in the NEXT message."
+                        )
+                    except Exception:
+                        self._vision_busy = False
+                        self._vision_cam_active = False
+                        self._pending_vision = None
+                        raise
 
             elif name == "close_camera":
                 self.ui.stop_camera_stream()
+                self._vision_cam_active = False
+                self._vision_close_pending = False
                 result = "Camera closed."
 
             elif name == "system_status":
@@ -921,6 +961,11 @@ class JarvisLive:
     async def _send_realtime(self):
         while True:
             msg = await self.out_queue.get()
+            with self._speaking_lock:
+                speaking = self._is_speaking
+            # Drop mic packets if JARVIS is speaking or within the 550ms acoustic echo decay window
+            if speaking or (time.monotonic() - self._last_speech_play_time < 0.55):
+                continue
             # Gemini 3.x Live rejects the old realtime_input.media_chunks field
             # (what `media=...` maps to) and closes the socket with a 1007. Send
             # mic / phone PCM through the new `audio` field instead. Queue items
@@ -952,7 +997,9 @@ class JarvisLive:
                 return
             with self._speaking_lock:
                 jarvis_speaking = self._is_speaking
-            if not jarvis_speaking and not self.ui.muted and not self._phone_active:
+            # Echo prevention: ignore mic while speaking AND during 550ms acoustic decay window
+            is_echo_window = (time.monotonic() - self._last_speech_play_time) < 0.55
+            if not jarvis_speaking and not is_echo_window and not self.ui.muted and not self._phone_active:
                 data = indata.tobytes()
                 loop.call_soon_threadsafe(
                     self.out_queue.put_nowait,
@@ -1033,6 +1080,9 @@ class JarvisLive:
                         if self._interrupted:
                             pass  # discard: interrupted
                         else:
+                            # Immediately mark speaking to mute mic the moment audio arrives
+                            self.set_speaking(True)
+                            self._last_speech_play_time = time.monotonic()
                             if self._turn_done_event and self._turn_done_event.is_set():
                                 self._turn_done_event.clear()
                             # Split into ~50 ms chunks so interrupt() stops audio within 50 ms
@@ -1139,7 +1189,8 @@ class JarvisLive:
                                 self._vision_busy = False
                                 async def _cam_close():
                                     await asyncio.sleep(2.0)
-                                    self.ui.stop_camera_stream()
+                                    if not self._vision_cam_active and not self._vision_close_pending:
+                                        self.ui.stop_camera_stream()
                                 asyncio.create_task(_cam_close())
 
                     if response.tool_call:
@@ -1192,16 +1243,19 @@ class JarvisLive:
                 try:
                     chunk = await asyncio.wait_for(
                         self.audio_in_queue.get(),
-                        timeout=0.1
+                        timeout=0.08
                     )
                 except asyncio.TimeoutError:
-                    if (
-                        self._turn_done_event
-                        and self._turn_done_event.is_set()
-                        and self.audio_in_queue.empty()
-                    ):
-                        self.set_speaking(False)
-                        self._turn_done_event.clear()
+                    now = time.monotonic()
+                    turn_ended = self._turn_done_event and self._turn_done_event.is_set()
+                    queue_empty = self.audio_in_queue.empty()
+                    elapsed = now - self._last_speech_play_time
+                    # Only unmute after 550ms acoustic hangover with no new chunks arriving
+                    if queue_empty and ((turn_ended and elapsed >= 0.55) or elapsed >= 1.2):
+                        if self._is_speaking:
+                            self.set_speaking(False)
+                        if self._turn_done_event:
+                            self._turn_done_event.clear()
                     continue
 
                 self.set_speaking(True)
@@ -1225,6 +1279,7 @@ class JarvisLive:
 
                 try:
                     await asyncio.to_thread(stream.write, bytes(batch))
+                    self._last_speech_play_time = time.monotonic()
                 except (RuntimeError, asyncio.CancelledError):
                     break   # executor shutting down — exit cleanly
         except Exception as e:
@@ -1623,6 +1678,7 @@ class JarvisLive:
                     self._vision_busy          = False
                     self._vision_last_time     = 0.0
                     self._interrupted          = False
+                    self._last_speech_play_time = 0.0
 
                     print("[JARVIS] Connected.")
                     if _resumed_with:
